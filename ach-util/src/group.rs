@@ -1,8 +1,8 @@
 use super::state::MemoryState;
 use core::cmp::Ordering;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[atomic_macro::atomic(32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemoryGroup(u32);
 impl MemoryGroup {
     pub const INIT: Self = Self::new(0, MemoryState::Uninitialized);

@@ -1,5 +1,5 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[atomic_macro::atomic(8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemoryState {
     Uninitialized = 0,
     Initializing = 1,

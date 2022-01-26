@@ -3,8 +3,8 @@ use super::state::MemoryState;
 const PEEK1: u32 = u8::MAX as u32 + 1;
 const PEEK_MAX: usize = (0x00FF_FFFF - PEEK1 + 1) as usize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[atomic_macro::atomic(32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryPeek(u32);
 impl MemoryPeek {
     pub const PEEK1: Self = Self(PEEK1);
