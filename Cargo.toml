@@ -1,0 +1,13 @@
+[workspace]
+members = [
+  "ach-util",
+  "ach-cell",
+  "ach-array",
+  "ach-spsc",
+  "ach-ring",
+  "ach-mpmc",
+  "ach-pubsub",
+  "ach",
+]
+
+[patch.crates-io]

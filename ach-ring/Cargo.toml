@@ -1,0 +1,17 @@
+[package]
+authors = ["rise0chen <rise0chen@163.com>"]
+categories = ["concurrency"]
+description = "Atomic Channel"
+edition = "2018"
+keywords = ["atomic", "channel", "no-heap", "once"]
+license-file = "LICENSE"
+name = "ach-ring"
+readme = "./README.md"
+repository = "https://github.com/rise0chen/ach.git"
+version = "0.1.0"
+
+[dependencies]
+util = {package = "ach-util", version = "0.1", path = "../ach-util"}
+
+[dev-dependencies]
+on_drop = "0.1"

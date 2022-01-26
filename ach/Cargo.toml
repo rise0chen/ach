@@ -1,0 +1,20 @@
+[package]
+authors = ["rise0chen <rise0chen@163.com>"]
+categories = ["concurrency"]
+description = "Atomic Channel"
+edition = "2018"
+keywords = ["atomic", "channel", "no-heap"]
+license-file = "LICENSE"
+name = "ach"
+readme = "./README.md"
+repository = "https://github.com/rise0chen/ach.git"
+version = "0.1.0"
+
+[dependencies]
+ach-array = {version = "0.1", path = "../ach-array"}
+ach-cell = {version = "0.1", path = "../ach-cell"}
+ach-mpmc = {version = "0.1", path = "../ach-mpmc"}
+ach-pubsub = {version = "0.1", path = "../ach-pubsub"}
+ach-ring = {version = "0.1", path = "../ach-ring"}
+ach-spsc = {version = "0.1", path = "../ach-spsc"}
+ach-util = {version = "0.1", path = "../ach-util"}
