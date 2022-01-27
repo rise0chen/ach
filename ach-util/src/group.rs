@@ -60,11 +60,22 @@ impl From<MemoryGroup> for u32 {
 }
 impl PartialOrd for MemoryGroup {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let ord = self.group().partial_cmp(&other.group());
+        let self_group = self.group();
+        let other_group = other.group();
+        let max_group = Self::max_group();
+        let ord = self_group.partial_cmp(&other_group);
         if ord == Some(Ordering::Equal) {
             self.state().partial_cmp(&other.state())
         } else {
-            ord
+            if self_group < max_group / 4 && other_group > max_group / 4 * 3 {
+                // self overflow
+                Some(Ordering::Greater)
+            } else if self_group > max_group / 4 * 3 && other_group < max_group / 4 {
+                // other overflow
+                Some(Ordering::Less)
+            } else {
+                ord
+            }
         }
     }
 }

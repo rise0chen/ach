@@ -17,9 +17,10 @@ fn test() {
 
     group.set_group(MemoryGroup::max_group() - 1);
     group.set_state(MemoryState::Erasing);
-    group = group.next();
-    assert_eq!(group.group(), 0);
-    assert!(group.state().is_uninitialized());
+    let group_next = group.next();
+    assert_eq!(group_next.group(), 0);
+    assert!(group_next.state().is_uninitialized());
+    assert!(group_next > group);
 
     assert!(
         MemoryGroup::new(0, MemoryState::Uninitialized)
