@@ -28,11 +28,13 @@ impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
     }
 }
 impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
-    pub fn send(&self, val: T) {
+    /// return success times
+    pub fn send(&self, val: T) -> usize {
+        let mut success: usize = 0;
         let mut send = None;
         for sub in self.subscribers.iter() {
             if let Some(peek) = sub {
-                if peek.peek_num() == Ok(0) {
+                if peek.peek_num() == Ok(1) {
                     // No subscriber
                     peek.remove();
                     continue;
@@ -44,8 +46,11 @@ impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
                 };
                 if let Err(v) = peek.0.push(value) {
                     send = Some(v);
+                } else {
+                    success += 1
                 }
             }
         }
+        success
     }
 }
