@@ -24,4 +24,12 @@ fn base() {
     assert!(CELL.set(4).is_ok());
     assert_eq!(*CELL.get().unwrap(), 4);
     assert_eq!(CELL.take().unwrap(), 4);
+
+    assert_eq!(CELL.swap(5), Ok(None));
+    assert_eq!(CELL.swap(6), Ok(Some(5)));
+    let peek = CELL.get();
+    assert_eq!(CELL.swap(7), Err(7));
+    drop(peek);
+    assert_eq!(CELL.swap(8), Ok(Some(6)));
+    assert_eq!(CELL.take().unwrap(), 8);
 }

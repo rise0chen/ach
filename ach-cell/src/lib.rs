@@ -90,7 +90,7 @@ impl<T> Cell<T> {
             None
         } else {
             let ret = Some(unsafe { ptr::read(self.ptr()) });
-            self.will_drop.store(false,Relaxed);
+            self.will_drop.store(false, Relaxed);
             self.state.store(MemoryState::Uninitialized.into(), Relaxed);
             ret
         }
@@ -123,6 +123,30 @@ impl<T> Cell<T> {
             unsafe { ptr::write(self.ptr(), value) };
             self.state.store(MemoryState::Initialized.into(), Relaxed);
             Ok(())
+        }
+    }
+    pub fn swap(&self, value: T) -> Result<Option<T>, T> {
+        match self.state.fetch_update(Relaxed, Relaxed, |x| {
+            if x.state().is_uninitialized() {
+                Some(MemoryState::Initializing.into())
+            } else if x.peek_num() == Ok(0) {
+                Some(MemoryState::Erasing.into())
+            } else {
+                None
+            }
+        }) {
+            Ok(state) => {
+                let ret = if state.state().is_uninitialized() {
+                    None
+                } else {
+                    Some(unsafe { ptr::read(self.ptr()) })
+                };
+                self.will_drop.store(false, Relaxed);
+                unsafe { ptr::write(self.ptr(), value) };
+                self.state.store(MemoryState::Initialized.into(), Relaxed);
+                Ok(ret)
+            }
+            Err(_) => Err(value),
         }
     }
     pub fn get_or_try_init(&self, value: T) -> Result<Peek<T>, T> {

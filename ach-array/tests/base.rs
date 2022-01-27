@@ -6,6 +6,14 @@ fn base() {
     assert_eq!(VEC.capacity(), 3);
     assert!(VEC.is_empty());
 
+    assert_eq!(VEC.swap(0, 1), Ok(None));
+    assert_eq!(VEC.swap(0, 2), Ok(Some(1)));
+    let peek = VEC.get(0);
+    assert_eq!(VEC.swap(0, 3), Err(3));
+    drop(peek);
+    assert_eq!(VEC.swap(0, 4), Ok(Some(2)));
+    assert_eq!(VEC.pop().unwrap(), 4);
+
     assert!(VEC.push(1).is_ok());
     assert!(!VEC.is_empty());
     assert_eq!(*VEC.get(0).unwrap(), 1);

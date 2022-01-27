@@ -48,6 +48,9 @@ impl<T, const N: usize> Array<T, N> {
     pub fn get(&self, index: usize) -> Option<Peek<T>> {
         self.buf[index].get()
     }
+    pub fn swap(&self, index: usize, value: T) -> Result<Option<T>, T> {
+        self.buf[index].swap(value)
+    }
     pub fn iter(&self) -> ArrayIterator<T, N> {
         ArrayIterator {
             vec: self,
