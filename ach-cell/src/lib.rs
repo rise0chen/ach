@@ -69,6 +69,13 @@ impl<T> Cell<T> {
             will_drop: AtomicBool::new(false),
         }
     }
+    pub fn new_with(init: T) -> Self {
+        Cell {
+            val: MaybeUninit::new(init),
+            state: AtomicMemoryPeek::new(MemoryState::Initialized.into()),
+            will_drop: AtomicBool::new(false),
+        }
+    }
     fn ptr(&self) -> *mut T {
         self.val.as_ptr() as *mut T
     }
