@@ -1,0 +1,30 @@
+[package]
+authors = ["rise0chen <rise0chen@163.com>"]
+categories = ["embedded", "concurrency"]
+description = "interrupt"
+edition = "2018"
+keywords = ["interrupt"]
+license-file = "LICENSE"
+name = "interrupt"
+readme = "./README.md"
+repository = "https://github.com/rise0chen/ach.git"
+version = "0.1.1"
+
+[features]
+custom = []
+default = []
+
+[dependencies]
+cfg-if = "1.0.0"
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
+cortex-m = {version = "0"}
+[target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_os = "none"))'.dependencies]
+riscv = {version = "0"}
+[target.'cfg(all(target_arch = "msp430", target_os = "none"))'.dependencies]
+msp430 = {version = "0"}
+[target.'cfg(all(target_arch = "xtensa", target_os = "none"))'.dependencies]
+xtensa-lx = {version = "0"}
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
