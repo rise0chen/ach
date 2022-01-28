@@ -12,6 +12,7 @@ version = "0.1.2"
 
 [dependencies]
 util = {package = "ach-util", version = "0.1", path = "../ach-util"}
+spin_loop = "0.1"
 
 [dev-dependencies]
 on_drop = "0.1"

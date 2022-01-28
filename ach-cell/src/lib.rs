@@ -177,7 +177,7 @@ impl<T> Cell<T> {
                 Ok(peek) => return peek,
                 Err(val) => value = val,
             }
-            spin();
+            spin_loop::spin();
         }
     }
 }
