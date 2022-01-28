@@ -1,11 +1,11 @@
 #![no_std]
 
-#[cfg(feature = "std")]
+#[cfg(not(target_os = "none"))]
 extern crate std;
 
 pub fn spin() {
-    #[cfg(not(feature = "std"))]
+    #[cfg(target_os = "none")]
     core::hint::spin_loop();
-    #[cfg(feature = "std")]
+    #[cfg(not(target_os = "none"))]
     std::thread::yield_now();
 }
