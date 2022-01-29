@@ -23,6 +23,9 @@ impl MemoryState {
     pub fn is_peeking(&self) -> bool {
         self == &Self::Peeking
     }
+    pub fn is_transient(&self) -> bool {
+        self == &Self::Initializing || self == &Self::Erasing
+    }
 }
 impl From<u8> for MemoryState {
     fn from(s: u8) -> Self {

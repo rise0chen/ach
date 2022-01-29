@@ -20,7 +20,7 @@ impl<'a, T, const N: usize> Receiver<'a, T, N> {
     const fn new(mpmc: &'a Mpmc<T, N>) -> Self {
         Receiver { mpmc }
     }
-    pub fn try_recv(&self) -> Option<T> {
+    pub fn recv(&self) -> Option<T> {
         self.mpmc.pop()
     }
 }
@@ -30,9 +30,7 @@ pub struct Mpmc<T, const N: usize> {
 }
 impl<T, const N: usize> Mpmc<T, N> {
     pub const fn new() -> Self {
-        Mpmc {
-            ring: Ring::new(),
-        }
+        Mpmc { ring: Ring::new() }
     }
     pub fn sender(&self) -> Sender<T, N> {
         Sender::new(self)

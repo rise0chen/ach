@@ -8,7 +8,7 @@ license-file = "LICENSE"
 name = "ach-util"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.6"
+version = "0.1.7"
 
 [dependencies]
 atomic_macro = "0.1"

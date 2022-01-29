@@ -1,6 +1,7 @@
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::{ptr, slice};
+use interrupt::CriticalSection;
 use util::*;
 
 pub struct Ring<T, const N: usize> {
@@ -9,7 +10,6 @@ pub struct Ring<T, const N: usize> {
     start: AtomicUsize,
     end: AtomicUsize,
     ops: [AtomicMemoryGroup; N],
-    retry: usize,
 }
 impl<T, const N: usize> Ring<T, N> {
     const CAPACITY: usize = N;
@@ -20,7 +20,6 @@ impl<T, const N: usize> Ring<T, N> {
             start: AtomicUsize::new(0),
             end: AtomicUsize::new(0),
             ops: [Self::INIT_STATE; N],
-            retry: 3,
         }
     }
     fn ptr(&self) -> *mut T {
@@ -113,14 +112,27 @@ impl<T, const N: usize> Ring<T, N> {
     }
 
     pub fn pop(&self) -> Option<T> {
-        self.pop_retry(self.retry)
+        loop {
+            match self.try_pop() {
+                Ok(val) => return Some(val),
+                Err(err) if err.retry => {
+                    continue;
+                }
+                Err(_) => return None,
+            }
+        }
     }
-    fn pop_retry(&self, deep: usize) -> Option<T> {
+    pub fn try_pop(&self) -> Result<T, Error<()>> {
+        let _cs = CriticalSection::new();
         let end = self.end.load(Ordering::Relaxed);
         let start = self.start.load(Ordering::Relaxed);
         let len = self.wrap_len(start, end);
         if len == 0 || len > self.capacity() {
-            return None;
+            return Err(Error {
+                state: MemoryState::Uninitialized,
+                input: (),
+                retry: false,
+            });
         }
         let group = MemoryGroup::group_of_idx(start, Self::CAPACITY);
         let index = self.index(start);
@@ -132,32 +144,53 @@ impl<T, const N: usize> Ring<T, N> {
                 None
             }
         }) {
+            let state = op.state();
             if op < expect {
-                None
+                Err(Error {
+                    state,
+                    input: (),
+                    retry: false,
+                })
             } else {
-                if deep == 0 {
-                    return None;
-                }
+                // retry next cell, needn't `spin`
                 self.add_ptr_start(start);
-                self.pop_retry(deep - 1)
+                Err(Error {
+                    state,
+                    input: (),
+                    retry: true,
+                })
             }
         } else {
             self.add_ptr_start(start);
-            let ret = Some(unsafe { self.buffer_read(index) });
+            let ret = unsafe { self.buffer_read(index) };
             let op = MemoryGroup::new(group + 1, MemoryState::Uninitialized);
             self.ops[index].store(op, Ordering::Relaxed);
-            ret
+            Ok(ret)
         }
     }
-    pub fn push(&self, value: T) -> Result<(), T> {
-        self.push_retry(value, self.retry)
+    pub fn push(&self, mut value: T) -> Result<(), T> {
+        loop {
+            match self.try_push(value) {
+                Ok(val) => return Ok(val),
+                Err(err) if err.retry => {
+                    value = err.input;
+                    continue;
+                }
+                Err(err) => return Err(err.input),
+            }
+        }
     }
-    fn push_retry(&self, value: T, deep: usize) -> Result<(), T> {
+    pub fn try_push(&self, value: T) -> Result<(), Error<T>> {
+        let _cs = CriticalSection::new();
         let start = self.start.load(Ordering::Relaxed);
         let end = self.end.load(Ordering::Relaxed);
         let len = self.wrap_len(start, end);
         if len >= self.capacity() {
-            return Err(value);
+            return Err(Error {
+                state: MemoryState::Initialized,
+                input: value,
+                retry: false,
+            });
         }
         let group = MemoryGroup::group_of_idx(end, Self::CAPACITY);
         let index = self.index(end);
@@ -169,14 +202,21 @@ impl<T, const N: usize> Ring<T, N> {
                 None
             }
         }) {
+            let state = op.state();
             if op < expect {
-                Err(value)
+                Err(Error {
+                    state,
+                    input: value,
+                    retry: false,
+                })
             } else {
-                if deep == 0 {
-                    return Err(value);
-                }
+                // retry next cell, needn't `spin`
                 self.add_ptr_end(end);
-                self.push_retry(value, deep - 1)
+                Err(Error {
+                    state,
+                    input: value,
+                    retry: true,
+                })
             }
         } else {
             self.add_ptr_end(end);

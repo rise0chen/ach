@@ -1,5 +1,6 @@
 use ach_cell::Cell;
 pub use ach_cell::Peek;
+use util::Error;
 
 #[derive(Debug)]
 pub struct Array<T, const N: usize> {
@@ -28,7 +29,7 @@ impl<T, const N: usize> Array<T, N> {
     /// pop a value from random position
     pub fn pop(&self) -> Option<T> {
         for index in 0..self.capacity() {
-            if let Some(x) = self.buf[index].take() {
+            if let Ok(x) = self.buf[index].try_take() {
                 return Some(x);
             }
         }
@@ -37,16 +38,22 @@ impl<T, const N: usize> Array<T, N> {
     /// push a value to random position, return index
     pub fn push(&self, mut value: T) -> Result<usize, T> {
         for index in 0..self.capacity() {
-            if let Err(v) = self.buf[index].set(value) {
-                value = v;
+            if let Err(v) = self.buf[index].try_set(value) {
+                value = v.input;
             } else {
                 return Ok(index);
             }
         }
         Err(value)
     }
+    pub fn try_get(&self, index: usize) -> Result<Peek<T>, Error<()>> {
+        self.buf[index].try_get()
+    }
     pub fn get(&self, index: usize) -> Option<Peek<T>> {
         self.buf[index].get()
+    }
+    pub fn try_swap(&self, index: usize, value: T) -> Result<Option<T>, Error<T>> {
+        self.buf[index].try_swap(value)
     }
     pub fn swap(&self, index: usize, value: T) -> Result<Option<T>, T> {
         self.buf[index].swap(value)

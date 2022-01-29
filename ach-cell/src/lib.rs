@@ -4,6 +4,7 @@ use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr;
 use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use interrupt::CriticalSection;
 use util::*;
 
 pub struct Peek<'a, T>(&'a Cell<T>);
@@ -28,6 +29,7 @@ impl<'a, T: fmt::Debug> fmt::Debug for Peek<'a, T> {
 }
 impl<'a, T> Drop for Peek<'a, T> {
     fn drop(&mut self) {
+        let _cs = CriticalSection::new();
         let will_drop = self.0.will_drop.load(Relaxed);
         let old = self.0.state.fetch_update(Relaxed, Relaxed, |mut x| {
             if x == MemoryPeek::PEEK1 {
@@ -86,53 +88,112 @@ impl<T> Cell<T> {
     pub fn peek_num(&self) -> Result<usize, MemoryState> {
         self.state.load(Relaxed).peek_num()
     }
-    pub fn take(&self) -> Option<T> {
-        if let Err(_) = self.state.fetch_update(Relaxed, Relaxed, |x| {
+    pub fn try_take(&self) -> Result<T, Error<()>> {
+        let _cs = CriticalSection::new();
+        if let Err(state) = self.state.fetch_update(Relaxed, Relaxed, |x| {
             if x.peek_num() == Ok(0) {
                 Some(MemoryState::Erasing.into())
             } else {
                 None
             }
         }) {
-            None
+            let state = state.state();
+            Err(Error {
+                state,
+                input: (),
+                retry: state.is_transient(),
+            })
         } else {
-            let ret = Some(unsafe { ptr::read(self.ptr()) });
+            let ret = unsafe { ptr::read(self.ptr()) };
             self.will_drop.store(false, Relaxed);
             self.state.store(MemoryState::Uninitialized.into(), Relaxed);
-            ret
+            Ok(ret)
         }
     }
-    pub fn get(&self) -> Option<Peek<T>> {
-        if self.will_drop.load(Relaxed) {
-            return None;
+    pub fn take(&self) -> Option<T> {
+        loop {
+            match self.try_take() {
+                Ok(val) => return Some(val),
+                Err(err) if err.retry => {
+                    spin_loop::spin();
+                    continue;
+                }
+                Err(_) => return None,
+            }
         }
-        if let Err(_) = self.state.fetch_update(Relaxed, Relaxed, |mut x| {
+    }
+    pub fn try_get(&self) -> Result<Peek<T>, Error<()>> {
+        if self.will_drop.load(Relaxed) {
+            return Err(Error {
+                state: MemoryState::Erasing,
+                input: (),
+                retry: false,
+            });
+        }
+        if let Err(state) = self.state.fetch_update(Relaxed, Relaxed, |mut x| {
             if x.peek_add().is_ok() {
                 Some(x)
             } else {
                 None
             }
         }) {
-            None
+            let state = state.state();
+            Err(Error {
+                state,
+                input: (),
+                retry: state.is_transient(),
+            })
         } else {
-            Some(Peek(self))
+            Ok(Peek(self))
         }
     }
-    pub fn set(&self, value: T) -> Result<(), T> {
-        if let Err(_) = self.state.compare_exchange(
+    pub fn get(&self) -> Option<Peek<T>> {
+        loop {
+            match self.try_get() {
+                Ok(val) => return Some(val),
+                Err(err) if err.retry => {
+                    spin_loop::spin();
+                    continue;
+                }
+                Err(_) => return None,
+            }
+        }
+    }
+    pub fn try_set(&self, value: T) -> Result<(), Error<T>> {
+        let _cs = CriticalSection::new();
+        if let Err(state) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
             MemoryState::Initializing.into(),
             Relaxed,
             Relaxed,
         ) {
-            Err(value)
+            let state = state.state();
+            Err(Error {
+                state,
+                input: value,
+                retry: state.is_transient(),
+            })
         } else {
             unsafe { ptr::write(self.ptr(), value) };
             self.state.store(MemoryState::Initialized.into(), Relaxed);
             Ok(())
         }
     }
-    pub fn swap(&self, value: T) -> Result<Option<T>, T> {
+    pub fn set(&self, mut value: T) -> Result<(), T> {
+        loop {
+            match self.try_set(value) {
+                Ok(val) => return Ok(val),
+                Err(err) if err.retry => {
+                    value = err.input;
+                    spin_loop::spin();
+                    continue;
+                }
+                Err(err) => return Err(err.input),
+            }
+        }
+    }
+    pub fn try_swap(&self, value: T) -> Result<Option<T>, Error<T>> {
+        let _cs = CriticalSection::new();
         match self.state.fetch_update(Relaxed, Relaxed, |x| {
             if x.state().is_uninitialized() {
                 Some(MemoryState::Initializing.into())
@@ -153,17 +214,48 @@ impl<T> Cell<T> {
                 self.state.store(MemoryState::Initialized.into(), Relaxed);
                 Ok(ret)
             }
-            Err(_) => Err(value),
+            Err(state) => {
+                let state = state.state();
+                Err(Error {
+                    state,
+                    input: value,
+                    retry: state.is_transient(),
+                })
+            }
         }
     }
-    pub fn get_or_try_init(&self, value: T) -> Result<Peek<T>, T> {
+    pub fn swap(&self, mut value: T) -> Result<Option<T>, T> {
+        loop {
+            match self.try_swap(value) {
+                Ok(val) => return Ok(val),
+                Err(err) if err.retry => {
+                    value = err.input;
+                    spin_loop::spin();
+                    continue;
+                }
+                Err(err) => return Err(err.input),
+            }
+        }
+    }
+    pub fn get_or_try_init(&self, value: T) -> Result<Peek<T>, Error<T>> {
+        let _cs = CriticalSection::new();
         if let Err(_) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
             MemoryState::Initializing.into(),
             Relaxed,
             Relaxed,
         ) {
-            self.get().ok_or_else(|| value)
+            self.try_get().map_err(
+                |Error {
+                     state,
+                     input: _,
+                     retry,
+                 }| Error {
+                    state,
+                    input: value,
+                    retry,
+                },
+            )
         } else {
             unsafe { ptr::write(self.ptr(), value) };
             self.state.store(MemoryPeek::PEEK1, Relaxed);
@@ -174,10 +266,14 @@ impl<T> Cell<T> {
     pub fn get_or_init(&self, mut value: T) -> Peek<T> {
         loop {
             match self.get_or_try_init(value) {
-                Ok(peek) => return peek,
-                Err(val) => value = val,
+                Ok(val) => return val,
+                Err(err) if err.retry => {
+                    value = err.input;
+                    spin_loop::spin();
+                    continue;
+                }
+                Err(_) => unreachable!(),
             }
-            spin_loop::spin();
         }
     }
 }
