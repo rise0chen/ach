@@ -3,6 +3,8 @@ members = [
   "spin_loop",
   "interrupt",
   "ach-util",
+  "ach-once",
+  "ach-lazy",
   "ach-cell",
   "ach-array",
   "ach-spsc",

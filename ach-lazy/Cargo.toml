@@ -1,0 +1,17 @@
+[package]
+authors = ["rise0chen <rise0chen@163.com>"]
+categories = ["concurrency"]
+description = "Atomic Channel"
+edition = "2018"
+keywords = ["atomic", "channel", "no-heap", "lazy"]
+license-file = "LICENSE"
+name = "ach-lazy"
+readme = "./README.md"
+repository = "https://github.com/rise0chen/ach.git"
+version = "0.1.0"
+
+[dependencies]
+ach-once = {version = "0.1", path = "../ach-once"}
+
+[dev-dependencies]
+on_drop = "0.1"
