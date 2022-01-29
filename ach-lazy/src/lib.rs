@@ -20,6 +20,7 @@ impl<T, F> Lazy<T, F> {
     }
 }
 impl<T, F: FnOnce() -> T> Lazy<T, F> {
+    /// Notice: `Spin`
     pub fn force(this: &Lazy<T, F>) -> &T {
         if this
             .has_val

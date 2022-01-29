@@ -49,19 +49,31 @@ impl<T, const N: usize> Array<T, N> {
     pub fn try_get(&self, index: usize) -> Result<Peek<T>, Error<()>> {
         self.buf[index].try_get()
     }
+    /// Notice: `Spin`
     pub fn get(&self, index: usize) -> Option<Peek<T>> {
         self.buf[index].get()
+    }
+    pub fn try_take(&self, index: usize) -> Result<T, Error<()>> {
+        self.buf[index].try_take()
+    }
+    /// Notice: `Spin`
+    pub fn take(&self, index: usize) -> Option<T> {
+        self.buf[index].take()
     }
     pub fn try_swap(&self, index: usize, value: T) -> Result<Option<T>, Error<T>> {
         self.buf[index].try_swap(value)
     }
+    /// Notice: `Spin`
     pub fn swap(&self, index: usize, value: T) -> Result<Option<T>, T> {
         self.buf[index].swap(value)
     }
-    pub fn iter(&self) -> ArrayIterator<T, N> {
+    /// It will ignore values which is transient if spin is `false`
+    /// Notice: `Spin`
+    pub fn iter(&self, spin: bool) -> ArrayIterator<T, N> {
         ArrayIterator {
             vec: self,
             index: 0,
+            spin,
         }
     }
 }
@@ -74,15 +86,30 @@ impl<T, const N: usize> Drop for Array<T, N> {
 pub struct ArrayIterator<'a, T, const N: usize> {
     vec: &'a Array<T, N>,
     index: usize,
+    spin: bool,
 }
 impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
-    type Item = Option<Peek<'a, T>>;
+    type Item = Peek<'a, T>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.vec.capacity() {
             return None;
         }
-        let ret = self.vec.get(self.index);
-        self.index += 1;
-        Some(ret)
+        if self.spin {
+            let ret = self.vec.get(self.index);
+            self.index += 1;
+            if let Some(ret) = ret {
+                Some(ret)
+            }else{
+                self.next()
+            }
+        } else {
+            let ret = self.vec.try_get(self.index);
+            self.index += 1;
+            if let Ok(ret) = ret {
+                Some(ret)
+            }else{
+                self.next()
+            }
+        }
     }
 }

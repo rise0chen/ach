@@ -10,11 +10,14 @@ impl<T, const N: usize> Subscriber<T, N> {
 
 pub struct Publisher<T, const NT: usize, const NS: usize> {
     subscribers: Array<Subscriber<T, NT>, NS>,
+    strict: bool,
 }
 impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
-    pub const fn new() -> Publisher<T, NT, NS> {
+    /// It will wait all subscriber ready when `send`, if strict is `true`.
+    pub const fn new(strict: bool) -> Publisher<T, NT, NS> {
         Self {
             subscribers: Array::new(),
+            strict,
         }
     }
     pub fn subscribe(&self) -> Option<Peek<Subscriber<T, NT>>> {
@@ -29,26 +32,25 @@ impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
 }
 impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
     /// return success times
+    /// Notice: `Spin`
     pub fn send(&self, val: T) -> usize {
         let mut success: usize = 0;
         let mut send = None;
-        for sub in self.subscribers.iter() {
-            if let Some(peek) = sub {
-                if peek.peek_num() == Ok(1) {
-                    // No subscriber
-                    peek.remove();
-                    continue;
-                }
-                let value = if let Some(v) = send.take() {
-                    v
-                } else {
-                    val.clone()
-                };
-                if let Err(v) = peek.0.push(value) {
-                    send = Some(v);
-                } else {
-                    success += 1
-                }
+        for peek in self.subscribers.iter(self.strict) {
+            if peek.peek_num() == Ok(1) {
+                // No subscriber
+                peek.remove();
+                continue;
+            }
+            let value = if let Some(v) = send.take() {
+                v
+            } else {
+                val.clone()
+            };
+            if let Err(v) = peek.0.push(value) {
+                send = Some(v);
+            } else {
+                success += 1
             }
         }
         success

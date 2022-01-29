@@ -54,6 +54,7 @@ impl<T> Once<T> {
             })
         }
     }
+    /// Notice: `Spin`
     pub fn get(&self) -> Option<&T> {
         loop {
             match self.try_get() {
@@ -93,6 +94,7 @@ impl<T> Once<T> {
             Ok(())
         }
     }
+    /// Notice: `Spin`
     pub fn set(&self, mut value: T) -> Result<(), T> {
         loop {
             match self.try_set(value) {
@@ -121,7 +123,7 @@ impl<T> Once<T> {
             Ok(unsafe { self.val.assume_init_ref() })
         }
     }
-    /// Notice: Maybe spin
+    /// Notice: `Spin`
     pub fn get_or_init(&self, mut value: T) -> &T {
         loop {
             match self.get_or_try_init(value) {

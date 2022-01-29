@@ -110,6 +110,7 @@ impl<T> Cell<T> {
             Ok(ret)
         }
     }
+    /// Notice: `Spin`
     pub fn take(&self) -> Option<T> {
         loop {
             match self.try_take() {
@@ -147,6 +148,7 @@ impl<T> Cell<T> {
             Ok(Peek(self))
         }
     }
+    /// Notice: `Spin`
     pub fn get(&self) -> Option<Peek<T>> {
         loop {
             match self.try_get() {
@@ -179,6 +181,7 @@ impl<T> Cell<T> {
             Ok(())
         }
     }
+    /// Notice: `Spin`
     pub fn set(&self, mut value: T) -> Result<(), T> {
         loop {
             match self.try_set(value) {
@@ -224,6 +227,7 @@ impl<T> Cell<T> {
             }
         }
     }
+    /// Notice: `Spin`
     pub fn swap(&self, mut value: T) -> Result<Option<T>, T> {
         loop {
             match self.try_swap(value) {
@@ -262,7 +266,7 @@ impl<T> Cell<T> {
             Ok(Peek(self))
         }
     }
-    /// Notice: Maybe spin
+    /// Notice: `Spin`
     pub fn get_or_init(&self, mut value: T) -> Peek<T> {
         loop {
             match self.get_or_try_init(value) {

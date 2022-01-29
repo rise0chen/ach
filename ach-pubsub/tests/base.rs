@@ -2,7 +2,7 @@ use ach_pubsub::Publisher;
 
 #[test]
 fn base() {
-    static PUB: Publisher<usize, 3, 2> = Publisher::new();
+    static PUB: Publisher<usize, 3, 2> = Publisher::new(false);
     let sub1 = PUB.subscribe().unwrap();
     let sub2 = PUB.subscribe().unwrap();
     assert!(PUB.subscribe().is_none());
