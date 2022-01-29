@@ -32,10 +32,10 @@ impl<T, const N: usize> Mpmc<T, N> {
     pub const fn new() -> Self {
         Mpmc { ring: Ring::new() }
     }
-    pub fn sender(&self) -> Sender<T, N> {
+    pub const fn sender(&self) -> Sender<T, N> {
         Sender::new(self)
     }
-    pub fn recver(&self) -> Receiver<T, N> {
+    pub const fn recver(&self) -> Receiver<T, N> {
         Receiver::new(self)
     }
 }
