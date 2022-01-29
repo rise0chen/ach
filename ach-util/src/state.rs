@@ -5,7 +5,7 @@ pub enum MemoryState {
     Initializing = 1,
     Initialized = 2,
     Erasing = 3,
-    Peeking = 4,
+    Referred = 4,
 }
 impl MemoryState {
     pub fn is_uninitialized(&self) -> bool {
@@ -20,8 +20,8 @@ impl MemoryState {
     pub fn is_erasing(&self) -> bool {
         self == &Self::Erasing
     }
-    pub fn is_peeking(&self) -> bool {
-        self == &Self::Peeking
+    pub fn is_referred(&self) -> bool {
+        self == &Self::Referred
     }
     pub fn is_transient(&self) -> bool {
         self == &Self::Initializing || self == &Self::Erasing
@@ -33,7 +33,7 @@ impl From<u8> for MemoryState {
             s if s == MemoryState::Initializing as u8 => MemoryState::Initializing,
             s if s == MemoryState::Initialized as u8 => MemoryState::Initialized,
             s if s == MemoryState::Erasing as u8 => MemoryState::Erasing,
-            s if s == MemoryState::Peeking as u8 => MemoryState::Peeking,
+            s if s == MemoryState::Referred as u8 => MemoryState::Referred,
             _ => MemoryState::Uninitialized,
         }
     }

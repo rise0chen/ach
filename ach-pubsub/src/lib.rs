@@ -1,4 +1,4 @@
-use ach_array::{Array, Peek};
+use ach_array::{Array, Ref};
 use ach_ring::Ring;
 
 pub struct Subscriber<T, const N: usize>(Ring<T, N>);
@@ -20,11 +20,11 @@ impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
             strict,
         }
     }
-    pub fn subscribe(&self) -> Option<Peek<Subscriber<T, NT>>> {
+    pub fn subscribe(&self) -> Option<Ref<Subscriber<T, NT>>> {
         let subscriber = Subscriber(Ring::new());
         if let Ok(i) = self.subscribers.push(subscriber) {
-            let peek = self.subscribers.get(i).unwrap();
-            Some(peek)
+            let sub = self.subscribers.get(i).unwrap();
+            Some(sub)
         } else {
             None
         }
@@ -36,10 +36,10 @@ impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
     pub fn send(&self, val: T) -> usize {
         let mut success: usize = 0;
         let mut send = None;
-        for peek in self.subscribers.iter(self.strict) {
-            if peek.peek_num() == Ok(1) {
+        for sub in self.subscribers.iter(self.strict) {
+            if sub.ref_num() == Ok(1) {
                 // No subscriber
-                peek.remove();
+                sub.remove();
                 continue;
             }
             let value = if let Some(v) = send.take() {
@@ -47,7 +47,7 @@ impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
             } else {
                 val.clone()
             };
-            if let Err(v) = peek.0.push(value) {
+            if let Err(v) = sub.0.push(value) {
                 send = Some(v);
             } else {
                 success += 1

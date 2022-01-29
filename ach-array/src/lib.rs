@@ -1,5 +1,5 @@
 use ach_cell::Cell;
-pub use ach_cell::Peek;
+pub use ach_cell::Ref;
 use util::Error;
 
 #[derive(Debug)]
@@ -46,11 +46,11 @@ impl<T, const N: usize> Array<T, N> {
         }
         Err(value)
     }
-    pub fn try_get(&self, index: usize) -> Result<Peek<T>, Error<()>> {
+    pub fn try_get(&self, index: usize) -> Result<Ref<T>, Error<()>> {
         self.buf[index].try_get()
     }
     /// Notice: `Spin`
-    pub fn get(&self, index: usize) -> Option<Peek<T>> {
+    pub fn get(&self, index: usize) -> Option<Ref<T>> {
         self.buf[index].get()
     }
     pub fn try_take(&self, index: usize) -> Result<T, Error<()>> {
@@ -89,7 +89,7 @@ pub struct ArrayIterator<'a, T, const N: usize> {
     spin: bool,
 }
 impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
-    type Item = Peek<'a, T>;
+    type Item = Ref<'a, T>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.vec.capacity() {
             return None;
@@ -99,7 +99,7 @@ impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
             self.index += 1;
             if let Some(ret) = ret {
                 Some(ret)
-            }else{
+            } else {
                 self.next()
             }
         } else {
@@ -107,7 +107,7 @@ impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
             self.index += 1;
             if let Ok(ret) = ret {
                 Some(ret)
-            }else{
+            } else {
                 self.next()
             }
         }

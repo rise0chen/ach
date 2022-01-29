@@ -21,11 +21,14 @@ fn test() {
         u8::from(MemoryState::Initialized).into()
     );
     assert_eq!(MemoryState::Erasing, u8::from(MemoryState::Erasing).into());
-    assert_eq!(MemoryState::Peeking, u8::from(MemoryState::Peeking).into());
+    assert_eq!(
+        MemoryState::Referred,
+        u8::from(MemoryState::Referred).into()
+    );
 
     assert!(MemoryState::Uninitialized.is_uninitialized());
     assert!(MemoryState::Initializing.is_initializing());
     assert!(MemoryState::Initialized.is_initialized());
     assert!(MemoryState::Erasing.is_erasing());
-    assert!(MemoryState::Peeking.is_peeking());
+    assert!(MemoryState::Referred.is_referred());
 }

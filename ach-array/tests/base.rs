@@ -8,9 +8,9 @@ fn base() {
 
     assert_eq!(VEC.swap(0, 1), Ok(None));
     assert_eq!(VEC.swap(0, 2), Ok(Some(1)));
-    let peek = VEC.get(0);
+    let refer = VEC.get(0);
     assert_eq!(VEC.swap(0, 3), Err(3));
-    drop(peek);
+    drop(refer);
     assert_eq!(VEC.swap(0, 4), Ok(Some(2)));
     assert_eq!(VEC.pop().unwrap(), 4);
 
