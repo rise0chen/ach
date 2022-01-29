@@ -3,10 +3,15 @@ use super::state::MemoryState;
 const REF1: u32 = u8::MAX as u32 + 1;
 const REF_MAX: usize = (0x00FF_FFFF - REF1 + 1) as usize;
 
-#[atomic_macro::atomic(32)]
+pub type AtomicMemoryRefer = atomic::Atomic<MemoryRefer>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryRefer(u32);
 impl MemoryRefer {
+    pub const UNINITIALIZED: Self = Self(MemoryState::Uninitialized as u32);
+    pub const INITIALIZING: Self = Self(MemoryState::Initializing as u32);
+    pub const INITIALIZED: Self = Self(MemoryState::Initialized as u32);
+    pub const ERASING: Self = Self(MemoryState::Erasing as u32);
     pub const REF1: Self = Self(REF1);
     /// Uninitialized
     pub const fn new() -> MemoryRefer {

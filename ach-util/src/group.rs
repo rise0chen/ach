@@ -1,7 +1,8 @@
 use super::state::MemoryState;
 use core::cmp::Ordering;
 
-#[atomic_macro::atomic(32)]
+pub type AtomicMemoryGroup = atomic::Atomic<MemoryGroup>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemoryGroup(u32);
 impl MemoryGroup {

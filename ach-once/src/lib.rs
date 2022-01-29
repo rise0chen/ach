@@ -14,7 +14,13 @@ impl<T> Once<T> {
     pub const fn new() -> Self {
         Once {
             val: MaybeUninit::uninit(),
-            state: AtomicMemoryState::ZERO,
+            state: AtomicMemoryState::new(MemoryState::Uninitialized),
+        }
+    }
+    pub const fn new_with(init: T) -> Self {
+        Once {
+            val: MaybeUninit::new(init),
+            state: AtomicMemoryState::new(MemoryState::Initialized),
         }
     }
     fn ptr(&self) -> *mut T {

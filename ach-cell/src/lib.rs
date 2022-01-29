@@ -67,14 +67,14 @@ impl<T> Cell<T> {
     pub const fn new() -> Self {
         Cell {
             val: MaybeUninit::uninit(),
-            state: AtomicMemoryRefer::ZERO,
+            state: AtomicMemoryRefer::new(MemoryRefer::UNINITIALIZED),
             will_drop: AtomicBool::new(false),
         }
     }
-    pub fn new_with(init: T) -> Self {
+    pub const fn new_with(init: T) -> Self {
         Cell {
             val: MaybeUninit::new(init),
-            state: AtomicMemoryRefer::new(MemoryState::Initialized.into()),
+            state: AtomicMemoryRefer::new(MemoryRefer::INITIALIZED),
             will_drop: AtomicBool::new(false),
         }
     }

@@ -1,9 +1,9 @@
 use ach_util::{AtomicMemoryGroup, MemoryGroup, MemoryState};
-use core::sync::atomic::Ordering::Relaxed;
 
 #[test]
 fn test() {
-    assert_eq!(AtomicMemoryGroup::ZERO.load(Relaxed), MemoryGroup::INIT);
+    assert!(AtomicMemoryGroup::is_lock_free());
+
     let mut group = MemoryGroup::new(0, MemoryState::Uninitialized);
     assert_eq!(group.group(), 0);
     assert!(group.state().is_uninitialized());

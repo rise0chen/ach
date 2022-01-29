@@ -13,7 +13,7 @@ pub struct Ring<T, const N: usize> {
 }
 impl<T, const N: usize> Ring<T, N> {
     const CAPACITY: usize = N;
-    const INIT_STATE: AtomicMemoryGroup = AtomicMemoryGroup::ZERO;
+    const INIT_STATE: AtomicMemoryGroup = AtomicMemoryGroup::new(MemoryGroup::INIT);
     pub const fn new() -> Self {
         Ring {
             buf: MaybeUninit::uninit(),

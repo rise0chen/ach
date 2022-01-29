@@ -1,12 +1,8 @@
 use ach_util::{AtomicMemoryRefer, MemoryRefer, MemoryState};
-use core::sync::atomic::Ordering::Relaxed;
 
 #[test]
 fn test() {
-    assert_eq!(
-        AtomicMemoryRefer::ZERO.load(Relaxed).state(),
-        MemoryState::Uninitialized
-    );
+    assert!(AtomicMemoryRefer::is_lock_free());
 
     assert_eq!(
         MemoryRefer::from(MemoryState::Initialized).state(),

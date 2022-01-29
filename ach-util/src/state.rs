@@ -1,4 +1,5 @@
-#[atomic_macro::atomic(8)]
+pub type AtomicMemoryState = atomic::Atomic<MemoryState>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemoryState {
     Uninitialized = 0,
