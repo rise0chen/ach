@@ -21,7 +21,7 @@ fn test() {
     let mut handle = Vec::new();
     for _ in TEST_DATA {
         handle.push(thread::spawn(move || loop {
-            let result = CELL.take();
+            let result = CELL.take().unwrap();
             if let Some(_) = result {
                 break;
             } else {

@@ -94,8 +94,8 @@ impl<T> Cell<T> {
 
     /// Takes ownership of the current value, leaving the cell uninitialized.
     ///
-    /// Returns Err if the cell is uninitialized, refered or in critical section.
-    pub fn try_take(&self) -> Result<T, Error<()>> {
+    /// Returns Err if the cell is refered or in critical section.
+    pub fn try_take(&self) -> Result<Option<T>, Error<()>> {
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.fetch_update(Relaxed, Relaxed, |x| {
             if x.ref_num() == Ok(0) {
@@ -105,39 +105,43 @@ impl<T> Cell<T> {
             }
         }) {
             let state = state.state();
-            Err(Error {
-                state,
-                input: (),
-                retry: state.is_initializing(),
-            })
+            if state.is_uninitialized() {
+                Ok(None)
+            } else {
+                Err(Error {
+                    state,
+                    input: (),
+                    retry: state.is_initializing(),
+                })
+            }
         } else {
             let ret = unsafe { ptr::read(self.ptr()) };
             self.will_drop.store(false, Relaxed);
             self.state.store(MemoryState::Uninitialized.into(), Relaxed);
-            Ok(ret)
+            Ok(Some(ret))
         }
     }
     /// Takes ownership of the current value, leaving the cell uninitialized.
     ///
-    /// Returns None if the cell is uninitialized or refered.
+    /// Returns Err if the cell is refered.
     ///
     /// Notice: `Spin`
-    pub fn take(&self) -> Option<T> {
+    pub fn take(&self) -> Result<Option<T>, ()> {
         loop {
             match self.try_take() {
-                Ok(val) => return Some(val),
+                Ok(val) => return Ok(val),
                 Err(err) if err.retry => {
                     spin_loop::spin();
                     continue;
                 }
-                Err(_) => return None,
+                Err(_) => return Err(()),
             }
         }
     }
 
     /// Tries to get a reference to the value of the Cell.
     ///
-    /// Returns Err if the value of the Cell hasn’t previously been initialized or in critical section.
+    /// Returns Err if the cell is uninitialized or in critical section.
     pub fn try_get(&self) -> Result<Ref<T>, Error<()>> {
         if self.will_drop.load(Relaxed) {
             return Err(Error {
@@ -165,7 +169,7 @@ impl<T> Cell<T> {
     }
     /// Tries to get a reference to the value of the Cell.
     ///
-    /// Returns None if the value of the Cell hasn’t previously been initialized.
+    /// Returns None if the cell is uninitialized.
     ///
     /// Notice: `Spin`
     pub fn get(&self) -> Option<Ref<T>> {
@@ -180,6 +184,10 @@ impl<T> Cell<T> {
             }
         }
     }
+
+    /// Sets the value of the Cell to the argument value.
+    ///
+    /// Returns Err if the value is refered, initialized or in critical section.
     pub fn try_set(&self, value: T) -> Result<(), Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.compare_exchange(
@@ -200,6 +208,9 @@ impl<T> Cell<T> {
             Ok(())
         }
     }
+    /// Sets the value of the Cell to the argument value.
+    ///
+    /// Returns Err if the value is refered or initialized.
     /// Notice: `Spin`
     pub fn set(&self, mut value: T) -> Result<(), T> {
         loop {
@@ -214,7 +225,11 @@ impl<T> Cell<T> {
             }
         }
     }
-    pub fn try_swap(&self, value: T) -> Result<Option<T>, Error<T>> {
+
+    /// Replaces the contained value with value, and returns the old contained value.
+    ///
+    /// Returns Err if the value is refered or in critical section.
+    pub fn try_replace(&self, value: T) -> Result<Option<T>, Error<T>> {
         let _cs = CriticalSection::new();
         match self.state.fetch_update(Relaxed, Relaxed, |x| {
             if x.state().is_uninitialized() || x.ref_num() == Ok(0) {
@@ -244,10 +259,14 @@ impl<T> Cell<T> {
             }
         }
     }
+    /// Replaces the contained value with value, and returns the old contained value.
+    ///
+    /// Returns Err if the value is refered.
+    ///
     /// Notice: `Spin`
-    pub fn swap(&self, mut value: T) -> Result<Option<T>, T> {
+    pub fn replace(&self, mut value: T) -> Result<Option<T>, T> {
         loop {
-            match self.try_swap(value) {
+            match self.try_replace(value) {
                 Ok(val) => return Ok(val),
                 Err(err) if err.retry => {
                     value = err.input;
@@ -258,6 +277,10 @@ impl<T> Cell<T> {
             }
         }
     }
+
+    /// Tries to get a reference to the value of the Cell.
+    ///
+    /// Returns Err if the cell is in critical section.
     pub fn get_or_try_init(&self, value: T) -> Result<Ref<T>, Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(_) = self.state.compare_exchange(
@@ -283,6 +306,8 @@ impl<T> Cell<T> {
             Ok(Ref(self))
         }
     }
+    /// Tries to get a reference to the value of the Cell.
+    ///
     /// Notice: `Spin`
     pub fn get_or_init(&self, mut value: T) -> Ref<T> {
         loop {
@@ -305,6 +330,6 @@ impl<T: fmt::Debug> fmt::Debug for Cell<T> {
 }
 impl<T> Drop for Cell<T> {
     fn drop(&mut self) {
-        self.take();
+        let _ = self.take();
     }
 }

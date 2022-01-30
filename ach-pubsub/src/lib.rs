@@ -23,7 +23,7 @@ impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
     pub fn subscribe(&self) -> Option<Ref<Subscriber<T, NT>>> {
         let subscriber = Subscriber(Ring::new());
         if let Ok(i) = self.subscribers.push(subscriber) {
-            let sub = self.subscribers.get(i).unwrap();
+            let sub = self.subscribers[i].get().unwrap();
             Some(sub)
         } else {
             None

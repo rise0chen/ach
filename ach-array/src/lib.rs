@@ -1,6 +1,7 @@
+use std::ops::Index;
+
 use ach_cell::Cell;
 pub use ach_cell::Ref;
-use util::Error;
 
 #[derive(Debug)]
 pub struct Array<T, const N: usize> {
@@ -29,7 +30,7 @@ impl<T, const N: usize> Array<T, N> {
     /// pop a value from random position
     pub fn pop(&self) -> Option<T> {
         for index in 0..self.capacity() {
-            if let Ok(x) = self.buf[index].try_take() {
+            if let Ok(Some(x)) = self.buf[index].try_take() {
                 return Some(x);
             }
         }
@@ -46,27 +47,6 @@ impl<T, const N: usize> Array<T, N> {
         }
         Err(value)
     }
-    pub fn try_get(&self, index: usize) -> Result<Ref<T>, Error<()>> {
-        self.buf[index].try_get()
-    }
-    /// Notice: `Spin`
-    pub fn get(&self, index: usize) -> Option<Ref<T>> {
-        self.buf[index].get()
-    }
-    pub fn try_take(&self, index: usize) -> Result<T, Error<()>> {
-        self.buf[index].try_take()
-    }
-    /// Notice: `Spin`
-    pub fn take(&self, index: usize) -> Option<T> {
-        self.buf[index].take()
-    }
-    pub fn try_swap(&self, index: usize, value: T) -> Result<Option<T>, Error<T>> {
-        self.buf[index].try_swap(value)
-    }
-    /// Notice: `Spin`
-    pub fn swap(&self, index: usize, value: T) -> Result<Option<T>, T> {
-        self.buf[index].swap(value)
-    }
     /// It will ignore values which is transient if strict is `false`
     /// Notice: `Spin` if strict
     pub fn iter(&self, strict: bool) -> ArrayIterator<T, N> {
@@ -75,6 +55,12 @@ impl<T, const N: usize> Array<T, N> {
             index: 0,
             strict,
         }
+    }
+}
+impl<T, const N: usize> Index<usize> for Array<T, N> {
+    type Output = Cell<T>;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.buf[index]
     }
 }
 impl<T, const N: usize> Drop for Array<T, N> {
@@ -95,7 +81,7 @@ impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
             return None;
         }
         if self.strict {
-            let ret = self.vec.get(self.index);
+            let ret = self.vec[self.index].get();
             self.index += 1;
             if let Some(ret) = ret {
                 Some(ret)
@@ -103,7 +89,7 @@ impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
                 self.next()
             }
         } else {
-            let ret = self.vec.try_get(self.index);
+            let ret = self.vec[self.index].try_get();
             self.index += 1;
             if let Ok(ret) = ret {
                 Some(ret)
