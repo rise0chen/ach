@@ -1,7 +1,9 @@
 use ach_ring::Ring;
+use core::sync::atomic::Ordering::Relaxed;
 use std::collections::BTreeSet;
 use std::ops::Range;
 use std::thread;
+use util::{MemoryRing, MemoryState};
 
 const TEST_DATA: Range<usize> = 0..1000;
 
@@ -37,5 +39,9 @@ fn test() {
         assert!(data_set.is_empty());
     });
     let _ = h.join();
+    assert!(ARRAY
+        .ops
+        .iter()
+        .all(|x| { x.load(Relaxed) == MemoryRing::new(10, MemoryState::Uninitialized) }));
     assert!(ARRAY.is_empty());
 }

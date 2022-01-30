@@ -23,8 +23,8 @@ fn test() {
     let h = thread::spawn(move || {
         for _ in TEST_DATA {
             loop {
-                let result = CELL.take().unwrap();
-                if let Some(i) = result {
+                let result = CELL.take();
+                if let Ok(Some(i)) = result {
                     assert!(data_set.remove(&i));
                     break;
                 } else {

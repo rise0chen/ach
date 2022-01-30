@@ -9,7 +9,7 @@ pub struct Ring<T, const N: usize> {
     /// always points to the first element
     start: AtomicUsize,
     end: AtomicUsize,
-    ops: [AtomicMemoryRing; N],
+    pub ops: [AtomicMemoryRing; N],
 }
 impl<T, const N: usize> Ring<T, N> {
     const CAPACITY: usize = N;
