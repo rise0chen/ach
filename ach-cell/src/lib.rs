@@ -15,6 +15,9 @@ impl<'a, T> Ref<'a, T> {
     pub fn remove(self) {
         self.0.will_drop.store(true, Relaxed);
     }
+    pub fn will_remove(&self) -> bool {
+        self.0.will_drop.load(Relaxed)
+    }
 }
 impl<'a, T> Deref for Ref<'a, T> {
     type Target = T;
@@ -30,7 +33,7 @@ impl<'a, T: fmt::Debug> fmt::Debug for Ref<'a, T> {
 impl<'a, T> Drop for Ref<'a, T> {
     fn drop(&mut self) {
         let _cs = CriticalSection::new();
-        let will_drop = self.0.will_drop.load(Relaxed);
+        let will_drop = self.will_remove();
         let old = self.0.state.fetch_update(Relaxed, Relaxed, |mut x| {
             if x == MemoryRefer::REF1 {
                 if will_drop {
@@ -88,6 +91,10 @@ impl<T> Cell<T> {
     pub fn ref_num(&self) -> Result<usize, MemoryState> {
         self.state.load(Relaxed).ref_num()
     }
+
+    /// Takes ownership of the current value, leaving the cell uninitialized.
+    ///
+    /// Returns Err if the cell is uninitialized, refered or in critical section.
     pub fn try_take(&self) -> Result<T, Error<()>> {
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.fetch_update(Relaxed, Relaxed, |x| {
@@ -110,6 +117,10 @@ impl<T> Cell<T> {
             Ok(ret)
         }
     }
+    /// Takes ownership of the current value, leaving the cell uninitialized.
+    ///
+    /// Returns None if the cell is uninitialized or refered.
+    ///
     /// Notice: `Spin`
     pub fn take(&self) -> Option<T> {
         loop {
@@ -123,6 +134,10 @@ impl<T> Cell<T> {
             }
         }
     }
+
+    /// Tries to get a reference to the value of the Cell.
+    ///
+    /// Returns Err if the value of the Cell hasn’t previously been initialized or in critical section.
     pub fn try_get(&self) -> Result<Ref<T>, Error<()>> {
         if self.will_drop.load(Relaxed) {
             return Err(Error {
@@ -148,6 +163,10 @@ impl<T> Cell<T> {
             Ok(Ref(self))
         }
     }
+    /// Tries to get a reference to the value of the Cell.
+    ///
+    /// Returns None if the value of the Cell hasn’t previously been initialized.
+    ///
     /// Notice: `Spin`
     pub fn get(&self) -> Option<Ref<T>> {
         loop {
