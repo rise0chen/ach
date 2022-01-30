@@ -67,13 +67,13 @@ impl<T, const N: usize> Array<T, N> {
     pub fn swap(&self, index: usize, value: T) -> Result<Option<T>, T> {
         self.buf[index].swap(value)
     }
-    /// It will ignore values which is transient if spin is `false`
-    /// Notice: `Spin`
-    pub fn iter(&self, spin: bool) -> ArrayIterator<T, N> {
+    /// It will ignore values which is transient if strict is `false`
+    /// Notice: `Spin` if strict
+    pub fn iter(&self, strict: bool) -> ArrayIterator<T, N> {
         ArrayIterator {
             vec: self,
             index: 0,
-            spin,
+            strict,
         }
     }
 }
@@ -86,7 +86,7 @@ impl<T, const N: usize> Drop for Array<T, N> {
 pub struct ArrayIterator<'a, T, const N: usize> {
     vec: &'a Array<T, N>,
     index: usize,
-    spin: bool,
+    strict: bool,
 }
 impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
     type Item = Ref<'a, T>;
@@ -94,7 +94,7 @@ impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
         if self.index >= self.vec.capacity() {
             return None;
         }
-        if self.spin {
+        if self.strict {
             let ret = self.vec.get(self.index);
             self.index += 1;
             if let Some(ret) = ret {

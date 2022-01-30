@@ -32,7 +32,7 @@ impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
 }
 impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
     /// return success times
-    /// Notice: `Spin`
+    /// Notice: `Spin` if strict
     pub fn send(&self, val: T) -> usize {
         let mut success: usize = 0;
         let mut send = None;
