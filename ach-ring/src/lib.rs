@@ -129,7 +129,7 @@ impl<T, const N: usize> Ring<T, N> {
         let len = self.wrap_len(start, end);
         if len == 0 || len > self.capacity() {
             return Err(Error {
-                state: MemoryState::Uninitialized,
+                state: MemoryState::Unknown,
                 input: (),
                 retry: false,
             });
@@ -145,19 +145,22 @@ impl<T, const N: usize> Ring<T, N> {
             }
         }) {
             let state = op.state();
-            if op < expect {
-                Err(Error {
-                    state,
-                    input: (),
-                    retry: false,
-                })
-            } else {
+            if op > expect {
                 // retry next cell, needn't `spin`
                 self.add_ptr_start(start);
+                self.try_pop()
+            } else if op.next() == expect {
+                // initializing
                 Err(Error {
                     state,
                     input: (),
                     retry: true,
+                })
+            } else {
+                Err(Error {
+                    state,
+                    input: (),
+                    retry: false,
                 })
             }
         } else {
@@ -187,7 +190,7 @@ impl<T, const N: usize> Ring<T, N> {
         let len = self.wrap_len(start, end);
         if len >= self.capacity() {
             return Err(Error {
-                state: MemoryState::Initialized,
+                state: MemoryState::Unknown,
                 input: value,
                 retry: false,
             });
@@ -203,19 +206,22 @@ impl<T, const N: usize> Ring<T, N> {
             }
         }) {
             let state = op.state();
-            if op < expect {
-                Err(Error {
-                    state,
-                    input: value,
-                    retry: false,
-                })
-            } else {
+            if op > expect {
                 // retry next cell, needn't `spin`
                 self.add_ptr_end(end);
+                self.try_push(value)
+            } else if op.next() == expect {
+                // erasing
                 Err(Error {
                     state,
                     input: value,
                     retry: true,
+                })
+            } else {
+                Err(Error {
+                    state,
+                    input: value,
+                    retry: false,
                 })
             }
         } else {

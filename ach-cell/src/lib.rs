@@ -101,7 +101,7 @@ impl<T> Cell<T> {
             Err(Error {
                 state,
                 input: (),
-                retry: state.is_transient(),
+                retry: state.is_initializing(),
             })
         } else {
             let ret = unsafe { ptr::read(self.ptr()) };
@@ -142,7 +142,7 @@ impl<T> Cell<T> {
             Err(Error {
                 state,
                 input: (),
-                retry: state.is_transient(),
+                retry: state.is_initializing(),
             })
         } else {
             Ok(Ref(self))
@@ -173,7 +173,7 @@ impl<T> Cell<T> {
             Err(Error {
                 state,
                 input: value,
-                retry: state.is_transient(),
+                retry: state.is_erasing(),
             })
         } else {
             unsafe { ptr::write(self.ptr(), value) };
@@ -198,10 +198,8 @@ impl<T> Cell<T> {
     pub fn try_swap(&self, value: T) -> Result<Option<T>, Error<T>> {
         let _cs = CriticalSection::new();
         match self.state.fetch_update(Relaxed, Relaxed, |x| {
-            if x.state().is_uninitialized() {
+            if x.state().is_uninitialized() || x.ref_num() == Ok(0) {
                 Some(MemoryState::Initializing.into())
-            } else if x.ref_num() == Ok(0) {
-                Some(MemoryState::Erasing.into())
             } else {
                 None
             }

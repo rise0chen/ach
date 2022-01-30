@@ -56,7 +56,7 @@ impl<T> Once<T> {
             Err(Error {
                 state,
                 input: (),
-                retry: state.is_transient(),
+                retry: state.is_initializing(),
             })
         }
     }
@@ -92,7 +92,7 @@ impl<T> Once<T> {
             Err(Error {
                 state,
                 input: value,
-                retry: state.is_transient(),
+                retry: state.is_erasing(),
             })
         } else {
             unsafe { ptr::write(self.ptr(), value) };
@@ -114,7 +114,7 @@ impl<T> Once<T> {
             }
         }
     }
-    pub fn get_or_try_init(&self, value: T) -> Result<&T, T> {
+    pub fn get_or_try_init(&self, value: T) -> Result<&T, Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(_) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
@@ -122,7 +122,17 @@ impl<T> Once<T> {
             Relaxed,
             Relaxed,
         ) {
-            self.get().ok_or_else(|| value)
+            self.try_get().map_err(
+                |Error {
+                     state,
+                     input: _,
+                     retry,
+                 }| Error {
+                    state,
+                    input: value,
+                    retry,
+                },
+            )
         } else {
             unsafe { ptr::write(self.ptr(), value) };
             self.state.store(MemoryState::Initialized.into(), Relaxed);
@@ -134,11 +144,12 @@ impl<T> Once<T> {
         loop {
             match self.get_or_try_init(value) {
                 Ok(val) => return val,
-                Err(err) => {
-                    value = err;
+                Err(err) if err.retry => {
+                    value = err.input;
                     spin_loop::spin();
                     continue;
                 }
+                Err(_) => unreachable!(),
             }
         }
     }
