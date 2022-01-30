@@ -9,11 +9,11 @@ pub struct Ring<T, const N: usize> {
     /// always points to the first element
     start: AtomicUsize,
     end: AtomicUsize,
-    ops: [AtomicMemoryGroup; N],
+    ops: [AtomicMemoryRing; N],
 }
 impl<T, const N: usize> Ring<T, N> {
     const CAPACITY: usize = N;
-    const INIT_STATE: AtomicMemoryGroup = AtomicMemoryGroup::new(MemoryGroup::INIT);
+    const INIT_STATE: AtomicMemoryRing = AtomicMemoryRing::new(MemoryRing::INIT);
     pub const fn new() -> Self {
         Ring {
             buf: MaybeUninit::uninit(),
@@ -29,7 +29,7 @@ impl<T, const N: usize> Ring<T, N> {
         Self::CAPACITY
     }
     const fn wrap_max(&self) -> usize {
-        MemoryGroup::max_idx(Self::CAPACITY)
+        MemoryRing::max_idx(Self::CAPACITY)
     }
     fn wrap_len(&self, start: usize, end: usize) -> usize {
         if end >= start {
@@ -134,9 +134,9 @@ impl<T, const N: usize> Ring<T, N> {
                 retry: false,
             });
         }
-        let group = MemoryGroup::group_of_idx(start, Self::CAPACITY);
+        let cycle = MemoryRing::cycle_of_idx(start, Self::CAPACITY);
         let index = self.index(start);
-        let expect = MemoryGroup::new(group, MemoryState::Initialized);
+        let expect = MemoryRing::new(cycle, MemoryState::Initialized);
         if let Err(op) = self.ops[index].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |op| {
             if op == expect {
                 Some(op.next())
@@ -163,7 +163,7 @@ impl<T, const N: usize> Ring<T, N> {
         } else {
             self.add_ptr_start(start);
             let ret = unsafe { self.buffer_read(index) };
-            let op = MemoryGroup::new(group + 1, MemoryState::Uninitialized);
+            let op = MemoryRing::new(cycle + 1, MemoryState::Uninitialized);
             self.ops[index].store(op, Ordering::Relaxed);
             Ok(ret)
         }
@@ -192,9 +192,9 @@ impl<T, const N: usize> Ring<T, N> {
                 retry: false,
             });
         }
-        let group = MemoryGroup::group_of_idx(end, Self::CAPACITY);
+        let cycle = MemoryRing::cycle_of_idx(end, Self::CAPACITY);
         let index = self.index(end);
-        let expect = MemoryGroup::new(group, MemoryState::Uninitialized);
+        let expect = MemoryRing::new(cycle, MemoryState::Uninitialized);
         if let Err(op) = self.ops[index].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |op| {
             if op == expect {
                 Some(op.next())
@@ -221,7 +221,7 @@ impl<T, const N: usize> Ring<T, N> {
         } else {
             self.add_ptr_end(end);
             unsafe { self.buffer_write(index, value) };
-            let op = MemoryGroup::new(group, MemoryState::Initialized);
+            let op = MemoryRing::new(cycle, MemoryState::Initialized);
             self.ops[index].store(op, Ordering::Relaxed);
             Ok(())
         }

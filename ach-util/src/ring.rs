@@ -1,22 +1,22 @@
 use super::state::MemoryState;
 use core::cmp::Ordering;
 
-pub type AtomicMemoryGroup = atomic::Atomic<MemoryGroup>;
+pub type AtomicMemoryRing = atomic::Atomic<MemoryRing>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MemoryGroup(u32);
-impl MemoryGroup {
+pub struct MemoryRing(u32);
+impl MemoryRing {
     pub const INIT: Self = Self::new(0, MemoryState::Uninitialized);
-    pub const fn new(group: usize, state: MemoryState) -> Self {
-        Self((state as u32) << 24 | group as u32)
+    pub const fn new(cycle: usize, state: MemoryState) -> Self {
+        Self((state as u32) << 24 | cycle as u32)
     }
-    pub const fn max_group() -> usize {
+    pub const fn max_cycle() -> usize {
         0x00FF_FFFF + 1
     }
-    pub fn group(&self) -> usize {
+    pub fn cycle(&self) -> usize {
         (self.0 as usize) & 0x00FF_FFFF
     }
-    pub fn set_group(&mut self, val: usize) {
+    pub fn set_cycle(&mut self, val: usize) {
         self.0 = (self.0 & 0xFF00_0000) | val as u32;
     }
     pub fn state(&self) -> MemoryState {
@@ -32,8 +32,8 @@ impl MemoryGroup {
             MemoryState::Initializing => ret.set_state(MemoryState::Initialized),
             MemoryState::Initialized => ret.set_state(MemoryState::Erasing),
             MemoryState::Erasing => {
-                let group = self.group() + 1;
-                ret.set_group(if group >= Self::max_group() { 0 } else { group });
+                let cycle = self.cycle() + 1;
+                ret.set_cycle(if cycle >= Self::max_cycle() { 0 } else { cycle });
                 ret.set_state(MemoryState::Uninitialized);
             }
             _ => unreachable!(),
@@ -42,36 +42,36 @@ impl MemoryGroup {
     }
 
     pub const fn max_idx(size: usize) -> usize {
-        let group_max = Self::max_group();
-        usize::MAX / size / group_max * size * group_max
+        let cycle_max = Self::max_cycle();
+        usize::MAX / size / cycle_max * size * cycle_max
     }
-    pub const fn group_of_idx(idx: usize, size: usize) -> usize {
+    pub const fn cycle_of_idx(idx: usize, size: usize) -> usize {
         idx / size
     }
 }
-impl From<u32> for MemoryGroup {
+impl From<u32> for MemoryRing {
     fn from(s: u32) -> Self {
         Self(s)
     }
 }
-impl From<MemoryGroup> for u32 {
-    fn from(s: MemoryGroup) -> Self {
+impl From<MemoryRing> for u32 {
+    fn from(s: MemoryRing) -> Self {
         s.0
     }
 }
-impl PartialOrd for MemoryGroup {
+impl PartialOrd for MemoryRing {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let self_group = self.group();
-        let other_group = other.group();
-        let max_group = Self::max_group();
-        let ord = self_group.partial_cmp(&other_group);
+        let self_cycle = self.cycle();
+        let other_cycle = other.cycle();
+        let max_cycle = Self::max_cycle();
+        let ord = self_cycle.partial_cmp(&other_cycle);
         if ord == Some(Ordering::Equal) {
             self.state().partial_cmp(&other.state())
         } else {
-            if self_group < max_group / 4 && other_group > max_group / 4 * 3 {
+            if self_cycle < max_cycle / 4 && other_cycle > max_cycle / 4 * 3 {
                 // self overflow
                 Some(Ordering::Greater)
-            } else if self_group > max_group / 4 * 3 && other_group < max_group / 4 {
+            } else if self_cycle > max_cycle / 4 * 3 && other_cycle < max_cycle / 4 {
                 // other overflow
                 Some(Ordering::Less)
             } else {
