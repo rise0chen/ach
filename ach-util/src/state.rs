@@ -7,6 +7,7 @@ pub enum MemoryState {
     Initialized = 2,
     Erasing = 3,
     Referred = 4,
+    Unknown,
 }
 impl MemoryState {
     pub fn is_uninitialized(&self) -> bool {
@@ -24,6 +25,9 @@ impl MemoryState {
     pub fn is_referred(&self) -> bool {
         self == &Self::Referred
     }
+    pub fn is_unknown(&self) -> bool {
+        self == &Self::Unknown
+    }
     pub fn is_transient(&self) -> bool {
         self == &Self::Initializing || self == &Self::Erasing
     }
@@ -31,11 +35,12 @@ impl MemoryState {
 impl From<u8> for MemoryState {
     fn from(s: u8) -> Self {
         match s {
+            s if s == MemoryState::Uninitialized as u8 => MemoryState::Uninitialized,
             s if s == MemoryState::Initializing as u8 => MemoryState::Initializing,
             s if s == MemoryState::Initialized as u8 => MemoryState::Initialized,
             s if s == MemoryState::Erasing as u8 => MemoryState::Erasing,
             s if s == MemoryState::Referred as u8 => MemoryState::Referred,
-            _ => MemoryState::Uninitialized,
+            _ => MemoryState::Unknown,
         }
     }
 }
