@@ -3,7 +3,6 @@ use std::ops::Index;
 use ach_cell::Cell;
 pub use ach_cell::Ref;
 
-#[derive(Debug)]
 pub struct Array<T, const N: usize> {
     buf: [Cell<T>; N],
 }
@@ -80,22 +79,16 @@ impl<'a, T, const N: usize> Iterator for ArrayIterator<'a, T, N> {
         if self.index >= self.vec.capacity() {
             return None;
         }
-        if self.strict {
-            let ret = self.vec[self.index].get();
-            self.index += 1;
-            if let Some(ret) = ret {
-                Some(ret)
-            } else {
-                self.next()
-            }
+        let ret = if self.strict {
+            self.vec[self.index].get()
         } else {
-            let ret = self.vec[self.index].try_get();
-            self.index += 1;
-            if let Ok(ret) = ret {
-                Some(ret)
-            } else {
-                self.next()
-            }
+            self.vec[self.index].try_get()
+        };
+        self.index += 1;
+        if let Ok(ret) = ret {
+            Some(ret)
+        } else {
+            self.next()
         }
     }
 }

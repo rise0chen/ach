@@ -6,12 +6,12 @@ fn base() {
     assert_eq!(VEC.capacity(), 3);
     assert!(VEC.is_empty());
 
-    assert_eq!(VEC[0].replace(1), Ok(None));
-    assert_eq!(VEC[0].replace(2), Ok(Some(1)));
+    assert_eq!(VEC[0].replace(1).unwrap(), None);
+    assert_eq!(VEC[0].replace(2).unwrap(), Some(1));
     let refer = VEC[0].get();
-    assert_eq!(VEC[0].replace(3), Err(3));
+    assert_eq!(VEC[0].replace(3).unwrap_err().input, 3);
     drop(refer);
-    assert_eq!(VEC[0].replace(4), Ok(Some(2)));
+    assert_eq!(VEC[0].replace(4).unwrap(), Some(2));
     assert_eq!(VEC.pop().unwrap(), 4);
 
     assert!(VEC.push(1).is_ok());

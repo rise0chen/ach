@@ -5,7 +5,7 @@ pub mod refer;
 pub mod ring;
 pub mod state;
 
-pub use error::Error;
+pub use error::{retry, Error};
 pub use refer::*;
 pub use ring::*;
 pub use state::*;

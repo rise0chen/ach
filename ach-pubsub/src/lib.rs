@@ -1,9 +1,21 @@
 use ach_array::{Array, Ref};
 use ach_ring::Ring;
+use util::Error;
 
 pub struct Subscriber<T, const N: usize>(Ring<T, N>);
 impl<T, const N: usize> Subscriber<T, N> {
-    pub fn recv(&self) -> Option<T> {
+    /// Removes the first element and returns it.
+    ///
+    /// Returns Err if the Ring is empty or in critical section.
+    pub fn try_recv(&self) -> Result<T, Error<()>> {
+        self.0.try_pop()
+    }
+    /// Removes the first element and returns it.
+    ///
+    /// Returns Err if the Ring is empty.
+    ///
+    /// Notice: `Spin`
+    pub fn recv(&self) -> Result<T, Error<()>> {
         self.0.pop()
     }
 }
@@ -48,7 +60,7 @@ impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
                 val.clone()
             };
             if let Err(v) = sub.0.push(value) {
-                send = Some(v);
+                send = Some(v.input);
             } else {
                 success += 1
             }

@@ -28,7 +28,7 @@ fn test() {
         for _ in TEST_DATA {
             loop {
                 let result = ARRAY.pop();
-                if let Some(i) = result {
+                if let Ok(i) = result {
                     assert!(data_set.remove(&i));
                     break;
                 } else {

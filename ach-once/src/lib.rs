@@ -47,6 +47,10 @@ impl<T> Once<T> {
             None
         }
     }
+
+    /// Tries to get a reference to the value of the Cell.
+    ///
+    /// Returns Err if the cell is uninitialized or in critical section.
     pub fn try_get(&self) -> Result<&T, Error<()>> {
         let state = self.state.load(Relaxed);
         if state.is_initialized() {
@@ -60,18 +64,13 @@ impl<T> Once<T> {
             })
         }
     }
+    /// Tries to get a reference to the value of the Cell.
+    ///
+    /// Returns Err if the cell is uninitialized.
+    ///
     /// Notice: `Spin`
-    pub fn get(&self) -> Option<&T> {
-        loop {
-            match self.try_get() {
-                Ok(val) => return Some(val),
-                Err(err) if err.retry => {
-                    spin_loop::spin();
-                    continue;
-                }
-                Err(_) => return None,
-            }
-        }
+    pub fn get(&self) -> Result<&T, Error<()>> {
+        retry(|_| self.try_get(), ())
     }
     pub fn get_mut(&mut self) -> Option<&mut T> {
         if self.is_initialized() {
@@ -81,6 +80,10 @@ impl<T> Once<T> {
             None
         }
     }
+
+    /// Sets the value of the Cell to the argument value.
+    ///
+    /// Returns Err if the value is initialized or in critical section.
     pub fn try_set(&self, value: T) -> Result<(), Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.compare_exchange(
@@ -100,20 +103,18 @@ impl<T> Once<T> {
             Ok(())
         }
     }
+    /// Sets the value of the Cell to the argument value.
+    ///
+    /// Returns Err if the value is initialized.
+    /// 
     /// Notice: `Spin`
-    pub fn set(&self, mut value: T) -> Result<(), T> {
-        loop {
-            match self.try_set(value) {
-                Ok(val) => return Ok(val),
-                Err(err) if err.retry => {
-                    value = err.input;
-                    spin_loop::spin();
-                    continue;
-                }
-                Err(err) => return Err(err.input),
-            }
-        }
+    pub fn set(&self,  value: T) -> Result<(), Error<T>> {
+        retry(|val|self.try_set(val), value)
     }
+
+    /// Tries to get a reference to the value of the Cell.
+    ///
+    /// Returns Err if the cell is in critical section.
     pub fn get_or_try_init(&self, value: T) -> Result<&T, Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(_) = self.state.compare_exchange(
@@ -139,6 +140,8 @@ impl<T> Once<T> {
             Ok(unsafe { self.val.assume_init_ref() })
         }
     }
+    /// Tries to get a reference to the value of the Cell.
+    ///
     /// Notice: `Spin`
     pub fn get_or_init(&self, mut value: T) -> &T {
         loop {

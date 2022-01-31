@@ -126,17 +126,8 @@ impl<T> Cell<T> {
     /// Returns Err if the cell is refered.
     ///
     /// Notice: `Spin`
-    pub fn take(&self) -> Result<Option<T>, ()> {
-        loop {
-            match self.try_take() {
-                Ok(val) => return Ok(val),
-                Err(err) if err.retry => {
-                    spin_loop::spin();
-                    continue;
-                }
-                Err(_) => return Err(()),
-            }
-        }
+    pub fn take(&self) -> Result<Option<T>, Error<()>> {
+        retry(|_| self.try_take(), ())
     }
 
     /// Tries to get a reference to the value of the Cell.
@@ -172,17 +163,8 @@ impl<T> Cell<T> {
     /// Returns None if the cell is uninitialized.
     ///
     /// Notice: `Spin`
-    pub fn get(&self) -> Option<Ref<T>> {
-        loop {
-            match self.try_get() {
-                Ok(val) => return Some(val),
-                Err(err) if err.retry => {
-                    spin_loop::spin();
-                    continue;
-                }
-                Err(_) => return None,
-            }
-        }
+    pub fn get(&self) -> Result<Ref<T>, Error<()>> {
+        retry(|_| self.try_get(), ())
     }
 
     /// Sets the value of the Cell to the argument value.
@@ -212,18 +194,8 @@ impl<T> Cell<T> {
     ///
     /// Returns Err if the value is refered or initialized.
     /// Notice: `Spin`
-    pub fn set(&self, mut value: T) -> Result<(), T> {
-        loop {
-            match self.try_set(value) {
-                Ok(val) => return Ok(val),
-                Err(err) if err.retry => {
-                    value = err.input;
-                    spin_loop::spin();
-                    continue;
-                }
-                Err(err) => return Err(err.input),
-            }
-        }
+    pub fn set(&self, value: T) -> Result<(), Error<T>> {
+        retry(|val| self.try_set(val), value)
     }
 
     /// Replaces the contained value with value, and returns the old contained value.
@@ -264,18 +236,8 @@ impl<T> Cell<T> {
     /// Returns Err if the value is refered.
     ///
     /// Notice: `Spin`
-    pub fn replace(&self, mut value: T) -> Result<Option<T>, T> {
-        loop {
-            match self.try_replace(value) {
-                Ok(val) => return Ok(val),
-                Err(err) if err.retry => {
-                    value = err.input;
-                    spin_loop::spin();
-                    continue;
-                }
-                Err(err) => return Err(err.input),
-            }
-        }
+    pub fn replace(&self, value: T) -> Result<Option<T>, Error<T>> {
+        retry(|val| self.try_replace(val), value)
     }
 
     /// Tries to get a reference to the value of the Cell.
@@ -321,11 +283,6 @@ impl<T> Cell<T> {
                 Err(_) => unreachable!(),
             }
         }
-    }
-}
-impl<T: fmt::Debug> fmt::Debug for Cell<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self.get(), f)
     }
 }
 impl<T> Drop for Cell<T> {

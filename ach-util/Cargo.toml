@@ -8,7 +8,8 @@ license-file = "LICENSE"
 name = "ach-util"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.11"
+version = "0.1.12"
 
 [dependencies]
 atomic = {version = "0.5", default-features = false}
+spin_loop = {version = "0.1", path = "../spin_loop"}

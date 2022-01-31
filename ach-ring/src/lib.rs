@@ -111,17 +111,9 @@ impl<T, const N: usize> Ring<T, N> {
         self.ops = [Self::INIT_STATE; N];
     }
 
-    pub fn pop(&self) -> Option<T> {
-        loop {
-            match self.try_pop() {
-                Ok(val) => return Some(val),
-                Err(err) if err.retry => {
-                    continue;
-                }
-                Err(_) => return None,
-            }
-        }
-    }
+    /// Removes the first element and returns it.
+    ///
+    /// Returns Err if the Ring is empty or in critical section.
     pub fn try_pop(&self) -> Result<T, Error<()>> {
         let _cs = CriticalSection::new();
         let end = self.end.load(Ordering::Relaxed);
@@ -171,18 +163,18 @@ impl<T, const N: usize> Ring<T, N> {
             Ok(ret)
         }
     }
-    pub fn push(&self, mut value: T) -> Result<(), T> {
-        loop {
-            match self.try_push(value) {
-                Ok(val) => return Ok(val),
-                Err(err) if err.retry => {
-                    value = err.input;
-                    continue;
-                }
-                Err(err) => return Err(err.input),
-            }
-        }
+    /// Removes the first element and returns it.
+    ///
+    /// Returns Err if the Ring is empty.
+    ///
+    /// Notice: `Spin`
+    pub fn pop(&self) -> Result<T, Error<()>> {
+        retry(|_| self.try_pop(), ())
     }
+
+    /// Appends an element to the back of the Ring.
+    ///
+    /// Returns Err if the Ring is full or in critical section.
     pub fn try_push(&self, value: T) -> Result<(), Error<T>> {
         let _cs = CriticalSection::new();
         let start = self.start.load(Ordering::Relaxed);
@@ -231,6 +223,14 @@ impl<T, const N: usize> Ring<T, N> {
             self.ops[index].store(op, Ordering::Relaxed);
             Ok(())
         }
+    }
+    /// Appends an element to the back of the Ring.
+    ///
+    /// Returns Err if the Ring is full.
+    ///
+    /// Notice: `Spin`
+    pub fn push(&self, value: T) -> Result<(), Error<T>> {
+        retry(|val| self.try_push(val), value)
     }
 }
 impl<T, const N: usize> Drop for Ring<T, N> {

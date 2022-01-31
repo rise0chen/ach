@@ -16,6 +16,6 @@ fn base() {
     assert_eq!(VEC.pop().unwrap(), 2);
     assert_eq!(VEC.pop().unwrap(), 3);
     assert_eq!(VEC.pop().unwrap(), 5);
-    assert!(VEC.pop().is_none());
+    assert!(VEC.pop().is_err());
     assert!(VEC.push(6).is_ok());
 }

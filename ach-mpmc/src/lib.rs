@@ -1,5 +1,6 @@
 use ach_ring::Ring;
 use core::ops::Deref;
+use util::*;
 
 pub struct Sender<'a, T, const N: usize> {
     mpmc: &'a Mpmc<T, N>,
@@ -8,7 +9,7 @@ impl<'a, T, const N: usize> Sender<'a, T, N> {
     const fn new(mpmc: &'a Mpmc<T, N>) -> Self {
         Sender { mpmc }
     }
-    pub fn send(&self, t: T) -> Result<(), T> {
+    pub fn send(&self, t: T) -> Result<(), Error<T>> {
         self.mpmc.push(t)
     }
 }
@@ -20,7 +21,7 @@ impl<'a, T, const N: usize> Receiver<'a, T, N> {
     const fn new(mpmc: &'a Mpmc<T, N>) -> Self {
         Receiver { mpmc }
     }
-    pub fn recv(&self) -> Option<T> {
+    pub fn recv(&self) -> Result<T,Error<()>> {
         self.mpmc.pop()
     }
 }

@@ -25,11 +25,11 @@ fn base() {
     assert_eq!(*CELL.get().unwrap(), 4);
     assert_eq!(CELL.take().unwrap(), Some(4));
 
-    assert_eq!(CELL.replace(5), Ok(None));
-    assert_eq!(CELL.replace(6), Ok(Some(5)));
+    assert_eq!(CELL.replace(5).unwrap(), None);
+    assert_eq!(CELL.replace(6).unwrap(), Some(5));
     let refer = CELL.get();
-    assert_eq!(CELL.replace(7), Err(7));
+    assert_eq!(CELL.replace(7).unwrap_err().input, 7);
     drop(refer);
-    assert_eq!(CELL.replace(8), Ok(Some(6)));
+    assert_eq!(CELL.replace(8).unwrap(), Some(6));
     assert_eq!(CELL.take().unwrap(), Some(8));
 }
