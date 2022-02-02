@@ -1,5 +1,5 @@
 use core::mem::MaybeUninit;
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst};
 use core::{ptr, slice};
 
 pub struct Sender<'a, T, const N: usize> {
@@ -58,26 +58,26 @@ impl<T, const N: usize> Spsc<T, N> {
     pub fn take_sender(&self) -> Option<Sender<T, N>> {
         match self
             .has_sender
-            .compare_exchange(true, false, Ordering::SeqCst, Ordering::Relaxed)
+            .compare_exchange(true, false, SeqCst, SeqCst)
         {
             Ok(_) => Some(Sender::new(self)),
             Err(_) => None,
         }
     }
     pub(crate) unsafe fn free_sender(&self) {
-        self.has_sender.store(true, Ordering::Relaxed)
+        self.has_sender.store(true, SeqCst)
     }
     pub fn take_recver(&self) -> Option<Receiver<T, N>> {
         match self
             .has_receiver
-            .compare_exchange(true, false, Ordering::SeqCst, Ordering::Relaxed)
+            .compare_exchange(true, false, SeqCst, SeqCst)
         {
             Ok(_) => Some(Receiver::new(self)),
             Err(_) => None,
         }
     }
     pub(crate) unsafe fn free_recver(&self) {
-        self.has_receiver.store(true, Ordering::Relaxed)
+        self.has_receiver.store(true, SeqCst)
     }
     fn ptr(&self) -> *mut T {
         self.buf.as_ptr() as *mut T
@@ -96,8 +96,8 @@ impl<T, const N: usize> Spsc<T, N> {
         }
     }
     pub fn len(&self) -> usize {
-        let start = self.start.load(Ordering::Relaxed);
-        let end = self.end.load(Ordering::Relaxed);
+        let start = self.start.load(SeqCst);
+        let end = self.end.load(SeqCst);
         self.wrap_len(start, end)
     }
     pub fn is_empty(&self) -> bool {
@@ -128,8 +128,8 @@ impl<T, const N: usize> Spsc<T, N> {
     }
     pub fn as_mut_slices(&mut self) -> (&mut [T], &mut [T]) {
         let ptr = self.ptr();
-        let start = self.start.load(Ordering::Relaxed);
-        let end = self.end.load(Ordering::Relaxed);
+        let start = self.start.load(SeqCst);
+        let end = self.end.load(SeqCst);
         if start == end {
             return (&mut [], &mut []);
         }
@@ -151,12 +151,12 @@ impl<T, const N: usize> Spsc<T, N> {
         let (a, b) = self.as_mut_slices();
         unsafe { ptr::drop_in_place(a) };
         unsafe { ptr::drop_in_place(b) };
-        self.end.store(0, Ordering::Relaxed);
-        self.start.store(0, Ordering::Relaxed);
+        self.end.store(0, SeqCst);
+        self.start.store(0, SeqCst);
     }
     fn pop(&self) -> Option<T> {
-        let end = self.end.load(Ordering::Relaxed);
-        let start = self.start.load(Ordering::Relaxed);
+        let end = self.end.load(SeqCst);
+        let start = self.start.load(SeqCst);
         let len = self.wrap_len(start, end);
         if len == 0 || len > self.capacity() {
             return None;
@@ -168,15 +168,15 @@ impl<T, const N: usize> Spsc<T, N> {
             .compare_exchange(
                 start,
                 self.next_idx(start),
-                Ordering::Relaxed,
-                Ordering::Relaxed,
+                SeqCst,
+                SeqCst,
             )
             .unwrap();
         ret
     }
     fn push(&self, value: T) -> Result<(), T> {
-        let start = self.start.load(Ordering::Relaxed);
-        let end = self.end.load(Ordering::Relaxed);
+        let start = self.start.load(SeqCst);
+        let end = self.end.load(SeqCst);
         let len = self.wrap_len(start, end);
         if len >= self.capacity() {
             return Err(value);
@@ -188,8 +188,8 @@ impl<T, const N: usize> Spsc<T, N> {
             .compare_exchange(
                 end,
                 self.next_idx(end),
-                Ordering::Relaxed,
-                Ordering::Relaxed,
+                SeqCst,
+                SeqCst,
             )
             .unwrap();
         Ok(())

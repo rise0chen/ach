@@ -3,7 +3,7 @@ use core::fmt;
 use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr;
-use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use core::sync::atomic::{AtomicBool, Ordering::SeqCst};
 use interrupt::CriticalSection;
 use util::*;
 
@@ -13,10 +13,10 @@ impl<'a, T> Ref<'a, T> {
         self.0.ref_num()
     }
     pub fn remove(self) {
-        self.0.will_drop.store(true, Relaxed);
+        self.0.will_drop.store(true, SeqCst);
     }
     pub fn will_remove(&self) -> bool {
-        self.0.will_drop.load(Relaxed)
+        self.0.will_drop.load(SeqCst)
     }
 }
 impl<'a, T> Deref for Ref<'a, T> {
@@ -34,7 +34,7 @@ impl<'a, T> Drop for Ref<'a, T> {
     fn drop(&mut self) {
         let _cs = CriticalSection::new();
         let will_drop = self.will_remove();
-        let old = self.0.state.fetch_update(Relaxed, Relaxed, |mut x| {
+        let old = self.0.state.fetch_update(SeqCst, SeqCst, |mut x| {
             if x == MemoryRefer::REF1 {
                 if will_drop {
                     return Some(MemoryState::Erasing.into());
@@ -50,10 +50,10 @@ impl<'a, T> Drop for Ref<'a, T> {
             Ok(MemoryRefer::REF1) => {
                 if will_drop {
                     unsafe { ptr::drop_in_place(self.0.val.as_ptr() as *mut T) };
-                    self.0.will_drop.store(false, Relaxed);
+                    self.0.will_drop.store(false, SeqCst);
                     self.0
                         .state
-                        .store(MemoryState::Uninitialized.into(), Relaxed);
+                        .store(MemoryState::Uninitialized.into(), SeqCst);
                 }
             }
             _ => {}
@@ -85,11 +85,11 @@ impl<T> Cell<T> {
         self.val.as_ptr() as *mut T
     }
     pub fn is_initialized(&self) -> bool {
-        let state = self.state.load(Relaxed);
+        let state = self.state.load(SeqCst);
         state.can_refer()
     }
     pub fn ref_num(&self) -> Result<usize, MemoryState> {
-        self.state.load(Relaxed).ref_num()
+        self.state.load(SeqCst).ref_num()
     }
 
     /// Takes ownership of the current value, leaving the cell uninitialized.
@@ -97,7 +97,7 @@ impl<T> Cell<T> {
     /// Returns Err if the cell is refered or in critical section.
     pub fn try_take(&self) -> Result<Option<T>, Error<()>> {
         let _cs = CriticalSection::new();
-        if let Err(state) = self.state.fetch_update(Relaxed, Relaxed, |x| {
+        if let Err(state) = self.state.fetch_update(SeqCst, SeqCst, |x| {
             if x.ref_num() == Ok(0) {
                 Some(MemoryState::Erasing.into())
             } else {
@@ -116,8 +116,8 @@ impl<T> Cell<T> {
             }
         } else {
             let ret = unsafe { ptr::read(self.ptr()) };
-            self.will_drop.store(false, Relaxed);
-            self.state.store(MemoryState::Uninitialized.into(), Relaxed);
+            self.will_drop.store(false, SeqCst);
+            self.state.store(MemoryState::Uninitialized.into(), SeqCst);
             Ok(Some(ret))
         }
     }
@@ -134,14 +134,14 @@ impl<T> Cell<T> {
     ///
     /// Returns Err if the cell is uninitialized or in critical section.
     pub fn try_get(&self) -> Result<Ref<T>, Error<()>> {
-        if self.will_drop.load(Relaxed) {
+        if self.will_drop.load(SeqCst) {
             return Err(Error {
                 state: MemoryState::Erasing,
                 input: (),
                 retry: false,
             });
         }
-        if let Err(state) = self.state.fetch_update(Relaxed, Relaxed, |mut x| {
+        if let Err(state) = self.state.fetch_update(SeqCst, SeqCst, |mut x| {
             if x.ref_add().is_ok() {
                 Some(x)
             } else {
@@ -175,8 +175,8 @@ impl<T> Cell<T> {
         if let Err(state) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
             MemoryState::Initializing.into(),
-            Relaxed,
-            Relaxed,
+            SeqCst,
+            SeqCst,
         ) {
             let state = state.state();
             Err(Error {
@@ -186,7 +186,7 @@ impl<T> Cell<T> {
             })
         } else {
             unsafe { ptr::write(self.ptr(), value) };
-            self.state.store(MemoryState::Initialized.into(), Relaxed);
+            self.state.store(MemoryState::Initialized.into(), SeqCst);
             Ok(())
         }
     }
@@ -203,7 +203,7 @@ impl<T> Cell<T> {
     /// Returns Err if the value is refered or in critical section.
     pub fn try_replace(&self, value: T) -> Result<Option<T>, Error<T>> {
         let _cs = CriticalSection::new();
-        match self.state.fetch_update(Relaxed, Relaxed, |x| {
+        match self.state.fetch_update(SeqCst, SeqCst, |x| {
             if x.state().is_uninitialized() || x.ref_num() == Ok(0) {
                 Some(MemoryState::Initializing.into())
             } else {
@@ -216,9 +216,9 @@ impl<T> Cell<T> {
                 } else {
                     Some(unsafe { ptr::read(self.ptr()) })
                 };
-                self.will_drop.store(false, Relaxed);
+                self.will_drop.store(false, SeqCst);
                 unsafe { ptr::write(self.ptr(), value) };
-                self.state.store(MemoryState::Initialized.into(), Relaxed);
+                self.state.store(MemoryState::Initialized.into(), SeqCst);
                 Ok(ret)
             }
             Err(state) => {
@@ -248,8 +248,8 @@ impl<T> Cell<T> {
         if let Err(_) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
             MemoryState::Initializing.into(),
-            Relaxed,
-            Relaxed,
+            SeqCst,
+            SeqCst,
         ) {
             self.try_get().map_err(
                 |Error {
@@ -264,7 +264,7 @@ impl<T> Cell<T> {
             )
         } else {
             unsafe { ptr::write(self.ptr(), value) };
-            self.state.store(MemoryRefer::REF1, Relaxed);
+            self.state.store(MemoryRefer::REF1, SeqCst);
             Ok(Ref(self))
         }
     }

@@ -1,5 +1,5 @@
 use core::mem::MaybeUninit;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use core::{ptr, slice};
 use interrupt::CriticalSection;
 use util::*;
@@ -39,8 +39,8 @@ impl<T, const N: usize> Ring<T, N> {
         }
     }
     pub fn len(&self) -> usize {
-        let start = self.start.load(Ordering::Relaxed);
-        let end = self.end.load(Ordering::Relaxed);
+        let start = self.start.load(SeqCst);
+        let end = self.end.load(SeqCst);
         self.wrap_len(start, end)
     }
     pub fn is_empty(&self) -> bool {
@@ -71,20 +71,16 @@ impl<T, const N: usize> Ring<T, N> {
     }
     fn add_ptr_end(&self, old: usize) {
         let new = self.next_idx(old);
-        let _ = self
-            .end
-            .compare_exchange_weak(old, new, Ordering::Relaxed, Ordering::Relaxed);
+        let _ = self.end.compare_exchange_weak(old, new, SeqCst, SeqCst);
     }
     fn add_ptr_start(&self, old: usize) {
         let new = self.next_idx(old);
-        let _ = self
-            .start
-            .compare_exchange_weak(old, new, Ordering::Relaxed, Ordering::Relaxed);
+        let _ = self.start.compare_exchange_weak(old, new, SeqCst, SeqCst);
     }
     pub fn as_mut_slices(&mut self) -> (&mut [T], &mut [T]) {
         let ptr = self.ptr();
-        let start = self.start.load(Ordering::Relaxed);
-        let end = self.end.load(Ordering::Relaxed);
+        let start = self.start.load(SeqCst);
+        let end = self.end.load(SeqCst);
         if start == end {
             return (&mut [], &mut []);
         }
@@ -106,8 +102,8 @@ impl<T, const N: usize> Ring<T, N> {
         let (a, b) = self.as_mut_slices();
         unsafe { ptr::drop_in_place(a) };
         unsafe { ptr::drop_in_place(b) };
-        self.end.store(0, Ordering::Relaxed);
-        self.start.store(0, Ordering::Relaxed);
+        self.end.store(0, SeqCst);
+        self.start.store(0, SeqCst);
         self.ops = [Self::INIT_STATE; N];
     }
 
@@ -116,8 +112,8 @@ impl<T, const N: usize> Ring<T, N> {
     /// Returns Err if the Ring is empty or in critical section.
     pub fn try_pop(&self) -> Result<T, Error<()>> {
         let _cs = CriticalSection::new();
-        let end = self.end.load(Ordering::Relaxed);
-        let start = self.start.load(Ordering::Relaxed);
+        let end = self.end.load(SeqCst);
+        let start = self.start.load(SeqCst);
         let len = self.wrap_len(start, end);
         if len == 0 || len > self.capacity() {
             return Err(Error {
@@ -129,7 +125,7 @@ impl<T, const N: usize> Ring<T, N> {
         let cycle = MemoryRing::cycle_of_idx(start, Self::CAPACITY);
         let index = self.index(start);
         let expect = MemoryRing::new(cycle, MemoryState::Initialized);
-        if let Err(op) = self.ops[index].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |op| {
+        if let Err(op) = self.ops[index].fetch_update(SeqCst, SeqCst, |op| {
             if op == expect {
                 Some(op.next())
             } else {
@@ -159,7 +155,7 @@ impl<T, const N: usize> Ring<T, N> {
             self.add_ptr_start(start);
             let ret = unsafe { self.buffer_read(index) };
             let op = MemoryRing::new(cycle + 1, MemoryState::Uninitialized);
-            self.ops[index].store(op, Ordering::Relaxed);
+            self.ops[index].store(op, SeqCst);
             Ok(ret)
         }
     }
@@ -177,8 +173,8 @@ impl<T, const N: usize> Ring<T, N> {
     /// Returns Err if the Ring is full or in critical section.
     pub fn try_push(&self, value: T) -> Result<(), Error<T>> {
         let _cs = CriticalSection::new();
-        let start = self.start.load(Ordering::Relaxed);
-        let end = self.end.load(Ordering::Relaxed);
+        let start = self.start.load(SeqCst);
+        let end = self.end.load(SeqCst);
         let len = self.wrap_len(start, end);
         if len >= self.capacity() {
             return Err(Error {
@@ -190,7 +186,7 @@ impl<T, const N: usize> Ring<T, N> {
         let cycle = MemoryRing::cycle_of_idx(end, Self::CAPACITY);
         let index = self.index(end);
         let expect = MemoryRing::new(cycle, MemoryState::Uninitialized);
-        if let Err(op) = self.ops[index].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |op| {
+        if let Err(op) = self.ops[index].fetch_update(SeqCst, SeqCst, |op| {
             if op == expect {
                 Some(op.next())
             } else {
@@ -220,7 +216,7 @@ impl<T, const N: usize> Ring<T, N> {
             self.add_ptr_end(end);
             unsafe { self.buffer_write(index, value) };
             let op = MemoryRing::new(cycle, MemoryState::Initialized);
-            self.ops[index].store(op, Ordering::Relaxed);
+            self.ops[index].store(op, SeqCst);
             Ok(())
         }
     }

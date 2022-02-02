@@ -1,5 +1,5 @@
 use ach_ring::Ring;
-use core::sync::atomic::Ordering::Relaxed;
+use core::sync::atomic::Ordering::SeqCst;
 use std::ops::Range;
 use std::thread;
 use util::{MemoryRing, MemoryState};
@@ -37,6 +37,6 @@ fn test() {
     assert!(ARRAY
         .ops
         .iter()
-        .all(|x| { x.load(Relaxed) == MemoryRing::new(10, MemoryState::Uninitialized) }));
+        .all(|x| { x.load(SeqCst) == MemoryRing::new(10, MemoryState::Uninitialized) }));
     assert!(ARRAY.is_empty());
 }

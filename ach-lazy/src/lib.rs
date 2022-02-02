@@ -3,7 +3,7 @@ use ach_once::Once;
 use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr;
-use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use core::sync::atomic::{AtomicBool, Ordering::SeqCst};
 
 pub struct Lazy<T, F = fn() -> T> {
     val: Once<T>,
@@ -24,7 +24,7 @@ impl<T, F: FnOnce() -> T> Lazy<T, F> {
     pub fn force(this: &Lazy<T, F>) -> &T {
         if this
             .has_val
-            .compare_exchange(true, false, Relaxed, Relaxed)
+            .compare_exchange(true, false, SeqCst, SeqCst)
             .is_ok()
         {
             let val = unsafe { ptr::read(this.init.as_ptr()) };
@@ -47,7 +47,7 @@ impl<T, F> Drop for Lazy<T, F> {
     fn drop(&mut self) {
         if self
             .has_val
-            .compare_exchange(true, false, Relaxed, Relaxed)
+            .compare_exchange(true, false, SeqCst, SeqCst)
             .is_ok()
         {
             unsafe { ptr::drop_in_place(self.init.as_mut_ptr()) };

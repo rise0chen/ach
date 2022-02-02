@@ -2,7 +2,7 @@
 use core::fmt;
 use core::mem::MaybeUninit;
 use core::ptr;
-use core::sync::atomic::Ordering::Relaxed;
+use core::sync::atomic::Ordering::SeqCst;
 use interrupt::CriticalSection;
 use util::*;
 
@@ -27,13 +27,13 @@ impl<T> Once<T> {
         self.val.as_ptr() as *mut T
     }
     pub fn is_initialized(&self) -> bool {
-        let state = self.state.load(Relaxed);
+        let state = self.state.load(SeqCst);
         state.is_initialized()
     }
     pub fn take(&mut self) -> Option<T> {
         if self.is_initialized() {
             let ret = unsafe { ptr::read(self.ptr()) };
-            self.state.store(MemoryState::Uninitialized.into(), Relaxed);
+            self.state.store(MemoryState::Uninitialized.into(), SeqCst);
             Some(ret)
         } else {
             None
@@ -52,7 +52,7 @@ impl<T> Once<T> {
     ///
     /// Returns Err if the cell is uninitialized or in critical section.
     pub fn try_get(&self) -> Result<&T, Error<()>> {
-        let state = self.state.load(Relaxed);
+        let state = self.state.load(SeqCst);
         if state.is_initialized() {
             let ret = unsafe { self.val.assume_init_ref() };
             Ok(ret)
@@ -89,8 +89,8 @@ impl<T> Once<T> {
         if let Err(state) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
             MemoryState::Initializing.into(),
-            Relaxed,
-            Relaxed,
+            SeqCst,
+            SeqCst,
         ) {
             Err(Error {
                 state,
@@ -99,7 +99,7 @@ impl<T> Once<T> {
             })
         } else {
             unsafe { ptr::write(self.ptr(), value) };
-            self.state.store(MemoryState::Initialized.into(), Relaxed);
+            self.state.store(MemoryState::Initialized.into(), SeqCst);
             Ok(())
         }
     }
@@ -120,8 +120,8 @@ impl<T> Once<T> {
         if let Err(_) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
             MemoryState::Initializing.into(),
-            Relaxed,
-            Relaxed,
+            SeqCst,
+            SeqCst,
         ) {
             self.try_get().map_err(
                 |Error {
@@ -136,7 +136,7 @@ impl<T> Once<T> {
             )
         } else {
             unsafe { ptr::write(self.ptr(), value) };
-            self.state.store(MemoryState::Initialized.into(), Relaxed);
+            self.state.store(MemoryState::Initialized.into(), SeqCst);
             Ok(unsafe { self.val.assume_init_ref() })
         }
     }
