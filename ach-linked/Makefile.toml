@@ -1,0 +1,15 @@
+[config]
+skip_core_tasks = true
+
+[tasks.publish]
+ignore_errors = true
+script = ["cargo publish"]
+
+[tasks.test]
+script = ["cargo test"]
+
+[tasks.build]
+script = ["cargo build"]
+
+[tasks.run]
+script = ["cargo run"]
