@@ -12,7 +12,8 @@ impl<'a, T> Ref<'a, T> {
     pub fn ref_num(&self) -> Result<usize, MemoryState> {
         self.0.ref_num()
     }
-    pub fn remove(self) {
+    /// Will remove the val of cell, after drop all Ref.
+    pub fn remove(&self) {
         self.0.will_drop.store(true, SeqCst);
     }
     pub fn will_remove(&self) -> bool {
@@ -27,7 +28,8 @@ impl<'a, T> Deref for Ref<'a, T> {
 }
 impl<'a, T: fmt::Debug> fmt::Debug for Ref<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self, f)
+        let v: &T = &*self;
+        fmt::Debug::fmt(&v, f)
     }
 }
 impl<'a, T> Drop for Ref<'a, T> {
@@ -138,7 +140,7 @@ impl<T> Cell<T> {
             return Err(Error {
                 state: MemoryState::Erasing,
                 input: (),
-                retry: false,
+                retry: true,
             });
         }
         if let Err(state) = self.state.fetch_update(SeqCst, SeqCst, |mut x| {
@@ -160,7 +162,7 @@ impl<T> Cell<T> {
     }
     /// Tries to get a reference to the value of the Cell.
     ///
-    /// Returns None if the cell is uninitialized.
+    /// Returns Err if the cell is uninitialized.
     ///
     /// Notice: `Spin`
     pub fn get(&self) -> Result<Ref<T>, Error<()>> {
@@ -196,6 +198,71 @@ impl<T> Cell<T> {
     /// Notice: `Spin`
     pub fn set(&self, value: T) -> Result<(), Error<T>> {
         retry(|val| self.try_set(val), value)
+    }
+
+    /// Fetches the value, and applies a function to it that returns an optional new value.
+    ///
+    /// Returns a Result of Ok(previous_value) if the function returned Some(_), else Err(previous_value).
+    ///
+    /// Notice: `Spin`
+    pub fn fetch_update<F>(&self, mut f: F) -> Result<Option<T>, Option<Ref<T>>>
+    where
+        F: FnMut(&Option<Ref<T>>) -> Option<Option<T>>,
+    {
+        let now = self.get().map_or_else(|_| None, |x| Some(x));
+        let ret = match f(&now) {
+            Some(new) => {
+                if let Some(now) = now {
+                    now.remove();
+                }
+                let _cs = CriticalSection::new();
+                let old = retry(
+                    |new| match self.state.fetch_update(SeqCst, SeqCst, |x| {
+                        if x.state().is_uninitialized() || x.ref_num() == Ok(0) {
+                            Some(
+                                if new.is_some() {
+                                    MemoryState::Initializing
+                                } else {
+                                    MemoryState::Erasing
+                                }
+                                .into(),
+                            )
+                        } else {
+                            None
+                        }
+                    }) {
+                        Ok(state) => {
+                            let ret = if state.state().is_uninitialized() {
+                                None
+                            } else {
+                                Some(unsafe { ptr::read(self.ptr()) })
+                            };
+                            self.will_drop.store(false, SeqCst);
+                            if let Some(new) = new {
+                                unsafe { ptr::write(self.ptr(), new) };
+                                self.state.store(MemoryState::Initialized.into(), SeqCst);
+                            } else {
+                                self.state.store(MemoryState::Uninitialized.into(), SeqCst);
+                            }
+                            Ok(ret)
+                        }
+                        Err(state) => {
+                            let state = state.state();
+                            Err(Error {
+                                state,
+                                input: new,
+                                retry: true,
+                            })
+                        }
+                    },
+                    new,
+                )
+                .unwrap();
+                Ok(old)
+            }
+            None => Err(now),
+        };
+        ret
     }
 
     /// Replaces the contained value with value, and returns the old contained value.
@@ -283,6 +350,16 @@ impl<T> Cell<T> {
                 Err(_) => unreachable!(),
             }
         }
+    }
+}
+impl<'a, T: fmt::Debug> fmt::Debug for Cell<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let v = if let Ok(v) = self.try_get() {
+            Some(v)
+        } else {
+            None
+        };
+        fmt::Debug::fmt(&v, f)
     }
 }
 impl<T> Drop for Cell<T> {

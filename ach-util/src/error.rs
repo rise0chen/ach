@@ -28,3 +28,18 @@ where
         }
     }
 }
+pub fn unwrap<I, O, F>(mut f: F, mut input: I) -> O
+where
+    F: FnMut(I) -> Result<O, Error<I>>,
+{
+    loop {
+        match f(input) {
+            Ok(val) => return val,
+            Err(err) => {
+                input = err.input;
+                spin_loop::spin();
+                continue;
+            }
+        }
+    }
+}
