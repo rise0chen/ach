@@ -21,7 +21,7 @@ impl<'a, T, const N: usize> Receiver<'a, T, N> {
     const fn new(mpmc: &'a Mpmc<T, N>) -> Self {
         Receiver { mpmc }
     }
-    pub fn recv(&self) -> Result<T,Error<()>> {
+    pub fn recv(&self) -> Result<T, Error<()>> {
         self.mpmc.pop()
     }
 }

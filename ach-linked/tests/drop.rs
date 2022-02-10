@@ -7,9 +7,8 @@ fn test() {
 
     let (item, token) = OnDrop::token(1);
     let mut node1 = Node::new_with(item);
-    unsafe { list.push(&mut node1) };
+    list.push(unsafe { &mut *((&mut node1) as *mut _) });
 
-    node1.drop(); //must drop it before move it.
     drop(node1);
     assert!(token.is_droped());
 }

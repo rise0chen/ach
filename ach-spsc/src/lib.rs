@@ -165,12 +165,7 @@ impl<T, const N: usize> Spsc<T, N> {
         let index = self.index(start);
         let ret = unsafe { Some(self.buffer_read(index)) };
         self.start
-            .compare_exchange(
-                start,
-                self.next_idx(start),
-                SeqCst,
-                SeqCst,
-            )
+            .compare_exchange(start, self.next_idx(start), SeqCst, SeqCst)
             .unwrap();
         ret
     }
@@ -185,12 +180,7 @@ impl<T, const N: usize> Spsc<T, N> {
         let index = self.index(end);
         unsafe { self.buffer_write(index, value) };
         self.end
-            .compare_exchange(
-                end,
-                self.next_idx(end),
-                SeqCst,
-                SeqCst,
-            )
+            .compare_exchange(end, self.next_idx(end), SeqCst, SeqCst)
             .unwrap();
         Ok(())
     }

@@ -106,10 +106,10 @@ impl<T> Once<T> {
     /// Sets the value of the Cell to the argument value.
     ///
     /// Returns Err if the value is initialized.
-    /// 
+    ///
     /// Notice: `Spin`
-    pub fn set(&self,  value: T) -> Result<(), Error<T>> {
-        retry(|val|self.try_set(val), value)
+    pub fn set(&self, value: T) -> Result<(), Error<T>> {
+        retry(|val| self.try_set(val), value)
     }
 
     /// Tries to get a reference to the value of the Cell.

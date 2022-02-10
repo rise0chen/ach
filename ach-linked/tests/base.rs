@@ -1,23 +1,30 @@
 use ach_linked::{LinkedList, Node};
+use std::collections::BTreeSet;
+use std::thread;
+
+const TEST_TIMES: usize = 1000;
+const NODE: Node<usize> = Node::new();
 
 #[test]
 fn base() {
+    let mut handle = Vec::with_capacity(TEST_TIMES);
     static LIST: LinkedList<usize> = LinkedList::new();
-    fn lists() -> Vec<usize> {
-        LIST.iter().map(|x| *x.get().unwrap()).collect()
+    let mut data_set: BTreeSet<usize> = (0..TEST_TIMES).collect();
+
+    let mut nodes = [NODE; TEST_TIMES];
+    for i in 0..TEST_TIMES {
+        nodes[i].try_replace(i).unwrap();
+        let node = unsafe { (&mut nodes[i] as *mut Node<usize>).as_mut().unwrap() };
+        handle.push(thread::spawn(move || {
+            LIST.push(node);
+        }));
+    }
+    while let Some(h) = handle.pop() {
+        h.join().unwrap();
     }
 
-    let mut node1 = Node::new_with(1);
-    unsafe { LIST.push(&mut node1) };
-    assert_eq!(lists(), vec![1]);
-
-    {
-        let mut node2 = Node::new_with(2);
-        unsafe { LIST.push(&mut node2) };
-        assert_eq!(lists(), vec![2, 1]);
+    for node in LIST.iter() {
+        assert!(data_set.remove(&node.try_get().unwrap()));
     }
-    assert_eq!(lists(), vec![1]);
-
-    unsafe { LIST.push(&mut Node::new_with(3)) };
-    assert_eq!(lists(), vec![1]);
+    assert!(data_set.is_empty());
 }
