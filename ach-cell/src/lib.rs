@@ -222,8 +222,22 @@ impl<T> Cell<T> {
     where
         F: FnMut(Option<&Ref<T>>) -> Option<Option<T>>,
     {
+        retry(
+            |_| {
+                if let Err(_) = self.will_drop.compare_exchange(false, true, SeqCst, SeqCst) {
+                    Err(Error {
+                        state: MemoryState::Erasing,
+                        input: (),
+                        retry: true,
+                    })
+                } else {
+                    Ok(())
+                }
+            },
+            (),
+        )
+        .unwrap();
         let now = self.get().map_or_else(|_| None, |x| Some(x));
-        self.will_drop.store(true, SeqCst);
         let ret = match f(now.as_ref()) {
             Some(new) => {
                 let old = retry(

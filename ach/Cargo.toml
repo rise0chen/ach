@@ -8,12 +8,14 @@ license-file = "LICENSE"
 name = "ach"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.0"
+version = "0.1.1"
 
 [dependencies]
 ach-array = {version = "0.1", path = "../ach-array"}
 ach-cell = {version = "0.1", path = "../ach-cell"}
+ach-lazy = {version = "0.1", path = "../ach-lazy"}
 ach-mpmc = {version = "0.1", path = "../ach-mpmc"}
+ach-once = {version = "0.1", path = "../ach-once"}
 ach-pubsub = {version = "0.1", path = "../ach-pubsub"}
 ach-ring = {version = "0.1", path = "../ach-ring"}
 ach-spsc = {version = "0.1", path = "../ach-spsc"}
