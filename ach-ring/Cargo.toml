@@ -8,11 +8,21 @@ license-file = "LICENSE"
 name = "ach-ring"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.6"
+version = "0.1.7"
 
 [dependencies]
-interrupt = "0.1"
 util = {package = "ach-util", version = "0.1", path = "../ach-util"}
 
+[target.'cfg(target_os = "none")'.dependencies]
+interrupt = "0.1"
+
 [dev-dependencies]
+criterion = "0.3"
+crossbeam-queue = "0.3.4"
+crossbeam-utils = "0.8.7"
+flume = "0.10.11"
 on_drop = "0.1"
+
+[[bench]]
+harness = false
+name = "basic"

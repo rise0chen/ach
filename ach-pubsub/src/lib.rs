@@ -6,16 +6,8 @@ pub struct Subscriber<T, const N: usize>(Ring<T, N>);
 impl<T, const N: usize> Subscriber<T, N> {
     /// Removes the first element and returns it.
     ///
-    /// Returns Err if the Ring is empty or in critical section.
-    pub fn try_recv(&self) -> Result<T, Error<()>> {
-        self.0.try_pop()
-    }
-    /// Removes the first element and returns it.
-    ///
     /// Returns Err if the Ring is empty.
-    ///
-    /// Notice: `Spin`
-    pub fn recv(&self) -> Result<T, Error<()>> {
+    pub fn try_recv(&self) -> Result<T, Error<()>> {
         self.0.pop()
     }
 }

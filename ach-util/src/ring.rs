@@ -8,6 +8,7 @@ pub struct MemoryRing(u32);
 impl MemoryRing {
     pub const INIT: Self = Self::new(0, MemoryState::Uninitialized);
     pub const fn new(cycle: usize, state: MemoryState) -> Self {
+        let cycle = cycle & 0x00FF_FFFF;
         Self((state as u32) << 24 | cycle as u32)
     }
     pub const fn max_cycle() -> usize {
@@ -17,6 +18,7 @@ impl MemoryRing {
         (self.0 as usize) & 0x00FF_FFFF
     }
     pub fn set_cycle(&mut self, val: usize) {
+        let val = val & 0x00FF_FFFF;
         self.0 = (self.0 & 0xFF00_0000) | val as u32;
     }
     pub fn state(&self) -> MemoryState {
