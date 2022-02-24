@@ -1,4 +1,5 @@
-use ach_array::{Array, Ref};
+use ach_array::Array;
+pub use ach_array::Ref;
 use ach_ring::Ring;
 use util::Error;
 
@@ -36,6 +37,7 @@ impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
 }
 impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
     /// return success times
+    ///
     /// Notice: `Spin` if strict
     pub fn send(&self, val: T) -> usize {
         let mut success: usize = 0;
