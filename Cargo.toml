@@ -5,6 +5,8 @@ members = [
   "ach-util",
   "ach-once",
   "ach-lazy",
+  "ach-option",
+  "ach-pool",
   "ach-cell",
   "ach-array",
   "ach-linked",
