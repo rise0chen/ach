@@ -9,7 +9,7 @@ fn base() {
     assert_eq!(VEC[0].replace(1).unwrap(), None);
     assert_eq!(VEC[0].replace(2).unwrap(), Some(1));
     let refer = VEC[0].get();
-    assert_eq!(VEC[0].replace(3).unwrap_err().input, 3);
+    assert_eq!(VEC[0].try_replace(3).unwrap_err().input, 3);
     drop(refer);
     assert_eq!(VEC[0].replace(4).unwrap(), Some(2));
     assert_eq!(VEC.pop().unwrap(), 4);

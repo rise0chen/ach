@@ -6,6 +6,15 @@ pub struct Error<T> {
     pub input: T,
     pub retry: bool,
 }
+impl<T> Error<T> {
+    pub fn new(input: T) -> Self {
+        Self {
+            state: MemoryState::Unknown,
+            input,
+            retry: false,
+        }
+    }
+}
 impl<T> fmt::Debug for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.state, f)

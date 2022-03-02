@@ -17,7 +17,7 @@ fn base() {
     let refer = CELL.get().unwrap();
     assert_eq!(CELL.ref_num(), Ok(1));
     assert_eq!(*refer, 3);
-    assert!(CELL.take().is_err());
+    assert!(CELL.try_take().is_err());
     drop(refer);
     assert_eq!(CELL.take().unwrap(), Some(3));
 
@@ -28,7 +28,7 @@ fn base() {
     assert_eq!(CELL.replace(5).unwrap(), None);
     assert_eq!(CELL.replace(6).unwrap(), Some(5));
     let refer = CELL.get();
-    assert_eq!(CELL.replace(7).unwrap_err().input, 7);
+    assert_eq!(CELL.try_replace(7).unwrap_err().input, 7);
     drop(refer);
     assert_eq!(CELL.replace(8).unwrap(), Some(6));
     assert_eq!(CELL.take().unwrap(), Some(8));

@@ -62,11 +62,6 @@ impl<T, const N: usize> Index<usize> for Array<T, N> {
         &self.buf[index]
     }
 }
-impl<T, const N: usize> Drop for Array<T, N> {
-    fn drop(&mut self) {
-        self.clear()
-    }
-}
 
 pub struct ArrayIterator<'a, T, const N: usize> {
     vec: &'a Array<T, N>,

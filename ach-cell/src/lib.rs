@@ -3,7 +3,7 @@ use core::fmt;
 use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr;
-use core::sync::atomic::{AtomicBool, Ordering::SeqCst};
+use core::sync::atomic::Ordering::{Relaxed, SeqCst};
 use interrupt::CriticalSection;
 use util::*;
 
@@ -14,10 +14,10 @@ impl<'a, T> Ref<'a, T> {
     }
     /// Will remove the val of cell, after drop all Ref.
     pub fn remove(&self) {
-        self.0.will_drop.store(true, SeqCst);
+        self.0.set_op(Op::Remove);
     }
     pub fn will_remove(&self) -> bool {
-        self.0.will_drop.load(SeqCst)
+        self.0.op.load(SeqCst).op() == Op::Remove
     }
 }
 impl<'a, T> Deref for Ref<'a, T> {
@@ -52,7 +52,7 @@ impl<'a, T> Drop for Ref<'a, T> {
             Ok(MemoryRefer::REF1) => {
                 if will_drop {
                     unsafe { ptr::drop_in_place(self.0.val.as_ptr() as *mut T) };
-                    self.0.will_drop.store(false, SeqCst);
+                    self.0.finish_op();
                     self.0
                         .state
                         .store(MemoryState::Uninitialized.into(), SeqCst);
@@ -66,21 +66,21 @@ impl<'a, T> Drop for Ref<'a, T> {
 pub struct Cell<T> {
     val: MaybeUninit<T>,
     state: AtomicMemoryRefer,
-    will_drop: AtomicBool,
+    op: AtomicMemoryOp,
 }
 impl<T> Cell<T> {
     pub const fn new() -> Self {
         Cell {
             val: MaybeUninit::uninit(),
             state: AtomicMemoryRefer::new(MemoryRefer::UNINITIALIZED),
-            will_drop: AtomicBool::new(false),
+            op: AtomicMemoryOp::new(MemoryOp::new()),
         }
     }
     pub const fn new_with(init: T) -> Self {
         Cell {
             val: MaybeUninit::new(init),
             state: AtomicMemoryRefer::new(MemoryRefer::INITIALIZED),
-            will_drop: AtomicBool::new(false),
+            op: AtomicMemoryOp::new(MemoryOp::new()),
         }
     }
     fn ptr(&self) -> *mut T {
@@ -93,18 +93,24 @@ impl<T> Cell<T> {
     pub fn ref_num(&self) -> Result<usize, MemoryState> {
         self.state.load(SeqCst).ref_num()
     }
+    pub fn set_op(&self, next: Op) -> u16 {
+        let version = self.op.fetch_update(SeqCst, Relaxed, |mut op| {
+            op.set_op(next);
+            Some(op)
+        });
+        version.unwrap().set_op(next)
+    }
+    pub fn finish_op(&self) {
+        let _ = self.op.fetch_update(SeqCst, Relaxed, |mut op| {
+            op.finish();
+            Some(op)
+        });
+    }
 
     /// Takes ownership of the current value, leaving the cell uninitialized.
     ///
     /// Returns Err if the cell is refered or in critical section.
     pub fn try_take(&self) -> Result<Option<T>, Error<()>> {
-        if self.will_drop.load(SeqCst) {
-            return Err(Error {
-                state: MemoryState::Erasing,
-                input: (),
-                retry: true,
-            });
-        }
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.fetch_update(SeqCst, SeqCst, |x| {
             if x.ref_num() == Ok(0) {
@@ -120,7 +126,7 @@ impl<T> Cell<T> {
                 Err(Error {
                     state,
                     input: (),
-                    retry: state.is_initializing(),
+                    retry: state.is_transient(),
                 })
             }
         } else {
@@ -131,20 +137,29 @@ impl<T> Cell<T> {
     }
     /// Takes ownership of the current value, leaving the cell uninitialized.
     ///
-    /// Returns Err if the cell is refered.
+    /// Returns Err if the operation is outdated.
     ///
     /// Notice: `Spin`
     pub fn take(&self) -> Result<Option<T>, Error<()>> {
-        retry(|_| self.try_take(), ())
+        let version = self.set_op(Op::Take);
+        while self.op.load(Relaxed).next_version() == version {
+            if let Ok(val) = self.try_take() {
+                self.finish_op();
+                return Ok(val);
+            }
+            spin_loop::spin();
+        }
+        self.finish_op();
+        Err(Error::new(()))
     }
 
     /// Tries to get a reference to the value of the Cell.
     ///
-    /// Returns Err if the cell is uninitialized or in critical section.
+    /// Returns Err if the cell is uninitialized, in operation or in critical section.
     pub fn try_get(&self) -> Result<Ref<T>, Error<()>> {
-        if self.will_drop.load(SeqCst) {
+        if !self.op.load(Relaxed).is_finished() {
             return Err(Error {
-                state: MemoryState::Erasing,
+                state: MemoryState::Unknown,
                 input: (),
                 retry: true,
             });
@@ -179,13 +194,6 @@ impl<T> Cell<T> {
     ///
     /// Returns Err if the value is refered, initialized or in critical section.
     pub fn try_set(&self, value: T) -> Result<(), Error<T>> {
-        if self.will_drop.load(SeqCst) {
-            return Err(Error {
-                state: MemoryState::Erasing,
-                input: value,
-                retry: true,
-            });
-        }
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
@@ -207,103 +215,33 @@ impl<T> Cell<T> {
     }
     /// Sets the value of the Cell to the argument value.
     ///
-    /// Returns Err if the value is refered or initialized.
-    /// Notice: `Spin`
-    pub fn set(&self, value: T) -> Result<(), Error<T>> {
-        retry(|val| self.try_set(val), value)
-    }
-
-    /// Fetches the value, and applies a function to it that returns an optional new value.
-    ///
-    /// Returns a Result of Ok(previous_value) if the function returned Some(_), else Err(previous_value).
+    /// Returns Err if the value is refered, initialized or outdated.
     ///
     /// Notice: `Spin`
-    pub fn fetch_update<F>(&self, mut f: F) -> Result<Option<T>, Option<Ref<T>>>
-    where
-        F: FnMut(Option<&Ref<T>>) -> Option<Option<T>>,
-    {
-        retry(
-            |_| {
-                if let Err(_) = self.will_drop.compare_exchange(false, true, SeqCst, SeqCst) {
-                    Err(Error {
-                        state: MemoryState::Erasing,
-                        input: (),
-                        retry: true,
-                    })
+    pub fn set(&self, mut value: T) -> Result<(), Error<T>> {
+        let version = self.set_op(Op::Write);
+        while self.op.load(Relaxed).next_version() == version {
+            if let Err(err) = self.try_set(value) {
+                if !err.retry {
+                    self.finish_op();
+                    return Err(err);
                 } else {
-                    Ok(())
+                    value = err.input;
                 }
-            },
-            (),
-        )
-        .unwrap();
-        let now = self.get().map_or_else(|_| None, |x| Some(x));
-        let ret = match f(now.as_ref()) {
-            Some(new) => {
-                let old = retry(
-                    |new| {
-                        let _cs = CriticalSection::new();
-                        match self.state.fetch_update(SeqCst, SeqCst, |x| {
-                            if x.state().is_uninitialized() || x.ref_num() <= Ok(1) {
-                                Some(
-                                    if new.is_some() {
-                                        MemoryState::Initializing
-                                    } else {
-                                        MemoryState::Erasing
-                                    }
-                                    .into(),
-                                )
-                            } else {
-                                None
-                            }
-                        }) {
-                            Ok(state) => {
-                                let ret = if state.state().is_uninitialized() {
-                                    None
-                                } else {
-                                    Some(unsafe { ptr::read(self.ptr()) })
-                                };
-                                if let Some(new) = new {
-                                    unsafe { ptr::write(self.ptr(), new) };
-                                    self.state.store(MemoryState::Initialized.into(), SeqCst);
-                                } else {
-                                    self.state.store(MemoryState::Uninitialized.into(), SeqCst);
-                                }
-                                Ok(ret)
-                            }
-                            Err(state) => {
-                                let state = state.state();
-                                Err(Error {
-                                    state,
-                                    input: new,
-                                    retry: true,
-                                })
-                            }
-                        }
-                    },
-                    new,
-                )
-                .unwrap();
-                core::mem::forget(now);
-                Ok(old)
+            } else {
+                self.finish_op();
+                return Ok(());
             }
-            None => Err(now),
-        };
-        self.will_drop.store(false, SeqCst);
-        ret
+            spin_loop::spin();
+        }
+        self.finish_op();
+        Err(Error::new(value))
     }
 
     /// Replaces the contained value with value, and returns the old contained value.
     ///
     /// Returns Err if the value is refered or in critical section.
     pub fn try_replace(&self, value: T) -> Result<Option<T>, Error<T>> {
-        if self.will_drop.load(SeqCst) {
-            return Err(Error {
-                state: MemoryState::Erasing,
-                input: value,
-                retry: true,
-            });
-        }
         let _cs = CriticalSection::new();
         match self.state.fetch_update(SeqCst, SeqCst, |x| {
             if x.state().is_uninitialized() || x.ref_num() == Ok(0) {
@@ -334,24 +272,31 @@ impl<T> Cell<T> {
     }
     /// Replaces the contained value with value, and returns the old contained value.
     ///
-    /// Returns Err if the value is refered.
+    /// Returns Err if the operation is outdated.
     ///
     /// Notice: `Spin`
-    pub fn replace(&self, value: T) -> Result<Option<T>, Error<T>> {
-        retry(|val| self.try_replace(val), value)
+    pub fn replace(&self, mut value: T) -> Result<Option<T>, Error<T>> {
+        let version = self.set_op(Op::Replace);
+        while self.op.load(Relaxed).next_version() == version {
+            match self.try_replace(value) {
+                Ok(val) => {
+                    self.finish_op();
+                    return Ok(val);
+                }
+                Err(err) => {
+                    value = err.input;
+                }
+            }
+            spin_loop::spin();
+        }
+        self.finish_op();
+        Err(Error::new(value))
     }
 
     /// Tries to get a reference to the value of the Cell.
     ///
     /// Returns Err if the cell is in critical section.
     pub fn get_or_try_init(&self, value: T) -> Result<Ref<T>, Error<T>> {
-        if self.will_drop.load(SeqCst) {
-            return Err(Error {
-                state: MemoryState::Erasing,
-                input: value,
-                retry: true,
-            });
-        }
         let _cs = CriticalSection::new();
         if let Err(_) = self.state.compare_exchange(
             MemoryState::Uninitialized.into(),
@@ -383,12 +328,11 @@ impl<T> Cell<T> {
         loop {
             match self.get_or_try_init(value) {
                 Ok(val) => return val,
-                Err(err) if err.retry => {
+                Err(err) => {
                     value = err.input;
                     spin_loop::spin();
                     continue;
                 }
-                Err(_) => unreachable!(),
             }
         }
     }
