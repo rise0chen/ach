@@ -36,7 +36,7 @@ impl<'a, T> Drop for Ref<'a, T> {
     fn drop(&mut self) {
         let _cs = CriticalSection::new();
         let will_drop = self.will_remove();
-        let old = self.0.state.fetch_update(SeqCst, SeqCst, |mut x| {
+        let old = self.0.state.fetch_update(SeqCst, Relaxed, |mut x| {
             if x == MemoryRefer::REF1 {
                 if will_drop {
                     return Some(MemoryState::Erasing.into());
@@ -112,7 +112,7 @@ impl<T> Cell<T> {
     /// Returns Err if the cell is refered or in critical section.
     pub fn try_take(&self) -> Result<Option<T>, Error<()>> {
         let _cs = CriticalSection::new();
-        if let Err(state) = self.state.fetch_update(SeqCst, SeqCst, |x| {
+        if let Err(state) = self.state.fetch_update(SeqCst, Relaxed, |x| {
             if x.ref_num() == Ok(0) {
                 Some(MemoryState::Erasing.into())
             } else {
@@ -153,6 +153,9 @@ impl<T> Cell<T> {
         Err(Error::new(()))
     }
 
+    pub unsafe fn peek(&self) -> &T {
+        self.val.assume_init_ref()
+    }
     /// Tries to get a reference to the value of the Cell.
     ///
     /// Returns Err if the cell is uninitialized, in operation or in critical section.
@@ -164,7 +167,7 @@ impl<T> Cell<T> {
                 retry: true,
             });
         }
-        if let Err(state) = self.state.fetch_update(SeqCst, SeqCst, |mut x| {
+        if let Err(state) = self.state.fetch_update(SeqCst, Relaxed, |mut x| {
             if x.ref_add().is_ok() {
                 Some(x)
             } else {
@@ -243,7 +246,7 @@ impl<T> Cell<T> {
     /// Returns Err if the value is refered or in critical section.
     pub fn try_replace(&self, value: T) -> Result<Option<T>, Error<T>> {
         let _cs = CriticalSection::new();
-        match self.state.fetch_update(SeqCst, SeqCst, |x| {
+        match self.state.fetch_update(SeqCst, Relaxed, |x| {
             if x.state().is_uninitialized() || x.ref_num() == Ok(0) {
                 Some(MemoryState::Initializing.into())
             } else {
