@@ -8,7 +8,7 @@ license-file = "LICENSE"
 name = "ach-ring"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.7"
+version = "0.1.9"
 
 [dependencies]
 util = {package = "ach-util", version = "0.1", path = "../ach-util"}

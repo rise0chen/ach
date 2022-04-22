@@ -1,3 +1,5 @@
+#![no_std]
+
 use ach_array::Array;
 pub use ach_array::Ref;
 use ach_ring::Ring;

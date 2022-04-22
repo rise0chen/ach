@@ -1,3 +1,5 @@
+#![no_std]
+
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst};
 use core::{ptr, slice};

@@ -1,3 +1,5 @@
+#![no_std]
+
 use ach_ring::Ring;
 use core::ops::Deref;
 use util::*;

@@ -1,7 +1,8 @@
-use std::ops::Index;
+#![no_std]
 
 use ach_cell::Cell;
 pub use ach_cell::Ref;
+use core::ops::Index;
 
 pub struct Array<T, const N: usize> {
     buf: [Cell<T>; N],

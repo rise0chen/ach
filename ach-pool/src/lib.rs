@@ -1,5 +1,7 @@
-use std::ops::Index;
+#![no_std]
+
 use ach_option::AchOption;
+use core::ops::Index;
 
 pub struct Pool<T, const N: usize> {
     buf: [AchOption<T>; N],

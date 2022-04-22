@@ -1,3 +1,5 @@
+#![no_std]
+
 pub use ach_array as array;
 pub use ach_cell as cell;
 pub use ach_lazy as lazy;
