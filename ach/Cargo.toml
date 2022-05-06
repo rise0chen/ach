@@ -8,7 +8,7 @@ license-file = "LICENSE"
 name = "ach"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.4"
+version = "0.1.5"
 
 [dependencies]
 ach-array = {version = "0.1", path = "../ach-array"}
