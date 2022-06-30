@@ -49,7 +49,7 @@ impl MemoryOp {
         self.cur_version() == self.next_version()
     }
     pub fn set_op(&mut self, op: Op) -> u16 {
-        self.0 = (self.0.wrapping_add(0x00100000)  & 0xFFFFFF00) | (op as u32);
+        self.0 = (self.0.wrapping_add(0x00100000) & 0xFFFFFF00) | (op as u32);
         self.next_version()
     }
 }

@@ -1,143 +1,142 @@
 #![no_std]
-use ach_cell::Cell;
 use core::marker::PhantomPinned;
-use core::ops::Deref;
+use core::ops::{Deref, DerefMut};
+use core::ptr::{self, NonNull};
+use core::sync::atomic::{AtomicPtr, Ordering::Relaxed};
 
-pub struct Node<T: 'static> {
-    val: Cell<T>,
-    prev: Option<&'static Node<T>>,
-    next: Option<&'static Node<T>>,
+pub struct Node<T> {
+    val: T,
+    next: Option<NonNull<Node<T>>>,
     _pin: PhantomPinned,
 }
 impl<T> Node<T> {
-    pub const fn new() -> Self {
+    pub const fn new(val: T) -> Self {
         Self {
-            val: Cell::new(),
-            prev: None,
+            val,
             next: None,
             _pin: PhantomPinned,
         }
     }
-    pub const fn new_with(val: T) -> Self {
-        Self {
-            val: Cell::new_with(val),
-            prev: None,
-            next: None,
-            _pin: PhantomPinned,
+    pub fn next(&mut self) -> Option<&mut Node<T>> {
+        unsafe { Some(self.next?.as_mut()) }
+    }
+    fn last(&mut self) -> &mut Node<T> {
+        let mut now = self;
+        loop {
+            if let Some(next) = &mut now.next {
+                now = unsafe { next.as_mut() };
+            } else {
+                return now;
+            }
         }
     }
-    unsafe fn set_prev(&self, node: Option<&'static Node<T>>) {
-        (*(self as *const Self as *mut Self)).prev = node;
-    }
-    unsafe fn take_prev(&self) -> Option<&'static Node<T>> {
-        (*(self as *const Self as *mut Self)).prev.take()
-    }
-    unsafe fn set_next(&self, node: Option<&'static Node<T>>) {
-        (*(self as *const Self as *mut Self)).next = node;
-    }
-    unsafe fn take_next(&self) -> Option<&'static Node<T>> {
-        (*(self as *const Self as *mut Self)).next.take()
+    /// remove child which eq node.
+    ///
+    /// Notice: can't remove head node.
+    fn remove_node(&mut self, node: &mut Node<T>) -> bool {
+        let mut now = self;
+        loop {
+            if let Some(next) = &mut now.next {
+                let next = unsafe { next.as_mut() };
+                if next as *const _ == node as *const _ {
+                    now.next = next.next;
+                    return true;
+                }
+                now = next;
+            } else {
+                return false;
+            }
+        }
     }
 }
 impl<T> Deref for Node<T> {
-    type Target = Cell<T>;
+    type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.val
     }
 }
-
-pub struct LinkedList<T: 'static> {
-    head: Option<&'static Node<T>>,
-    tail: Option<&'static Node<T>>,
+impl<T> DerefMut for Node<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.val
+    }
 }
-impl<T: 'static> LinkedList<T> {
+
+pub struct LinkedList<T> {
+    head: AtomicPtr<Node<T>>,
+}
+impl<T> LinkedList<T> {
     pub const fn new() -> Self {
         Self {
-            head: None,
-            tail: None,
+            head: AtomicPtr::new(ptr::null_mut()),
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.head.is_none() && self.tail.is_none()
+        let head = self.head.load(Relaxed);
+        head.is_null()
+    }
+
+    /// delete all entries from LinkedList
+    ///
+    /// If list is empty, return NULL, otherwise, delete all entries and return the pointer to the first entry.
+    pub fn take_all(&self) -> Option<&mut Node<T>> {
+        unsafe { self.head.swap(ptr::null_mut(), Relaxed).as_mut() }
     }
 
     /// Adds a node to the LinkedList.
-    ///
-    /// Call this method multiple times is safe.
-    pub fn push(&mut self, node: &'static Node<T>) {
-        if node.prev.is_some() || node.next.is_some() {
+    ///  
+    /// Safety:
+    /// This function is only safe as long as `node` is guaranteed to
+    /// get removed from the list before it gets moved or dropped.
+    pub unsafe fn push(&self, node: &mut Node<T>) {
+        if node.next.is_some() {
             return;
         }
-        if let Some(head) = self.head {
-            if head as *const _ == node as *const _ {
-                return;
-            }
-            self.head = Some(node);
-            unsafe { head.set_prev(Some(node)) };
-            unsafe { node.set_next(Some(head)) };
-        } else {
-            self.head = Some(node);
-            self.tail = Some(node);
-        }
+        self.head
+            .fetch_update(Relaxed, Relaxed, |p| {
+                node.next = p.as_mut().map(|x| x.into());
+                Some(node)
+            })
+            .unwrap();
+    }
+    /// Adds a list to the LinkedList.
+    ///
+    /// Safety:
+    /// This function is only safe as long as `node` is guaranteed to
+    /// get removed from the list before it gets moved or dropped.
+    pub unsafe fn push_list(&self, node: &mut Node<T>) {
+        let last = node.last() as *mut Node<T>;
+        self.head
+            .fetch_update(Relaxed, Relaxed, |p| {
+                (*last).next = p.as_mut().map(|x| x.into());
+                Some(node)
+            })
+            .unwrap();
     }
 
     /// Removes a node from the LinkedList.
-    pub fn remove(&mut self, node: &'static Node<T>) {
-        match unsafe { (node.take_prev(), node.take_next()) } {
-            (None, None) => {
-                if let Some(head) = self.head {
-                    if head as *const _ == node as *const _ {
-                        self.head = None;
-                        self.tail = None;
+    pub fn remove(&self, node: &mut Node<T>) {
+        let mut root = self.take_all();
+        loop {
+            if let Some(root) = &mut root {
+                if (*root) as *const _ == node as *const _ {
+                    if let Some(next) = root.next() {
+                        unsafe { self.push_list(next) };
+                    }
+                    return;
+                } else {
+                    if root.remove_node(node) {
+                        unsafe { self.push_list(*root) };
+                        return;
                     }
                 }
             }
-            (None, Some(next)) => {
-                self.head = Some(next);
-                unsafe { next.set_prev(None) };
+            let new_root = self.take_all();
+            if let Some(root) = root {
+                unsafe { self.push_list(root) };
             }
-            (Some(prev), None) => {
-                self.tail = Some(prev);
-                unsafe { prev.set_next(None) };
-            }
-            (Some(prev), Some(next)) => {
-                unsafe { prev.set_next(Some(next)) };
-                unsafe { next.set_prev(Some(prev)) };
-            }
-        }
-    }
-
-    /// Removes the new element and returns it.
-    pub fn pop(&mut self) -> Option<&'static Node<T>> {
-        if let Some(tail) = self.tail {
-            let prev = unsafe { tail.take_prev() };
-            if let Some(prev) = prev {
-                unsafe { prev.set_next(None) };
-                self.tail = Some(prev);
-            } else {
-                self.head = None;
-                self.tail = None;
-            }
-            Some(tail)
-        } else {
-            None
-        }
-    }
-
-    /// Retains only the elements specified by the predicate.
-    ///
-    /// In other words, remove all elements e such that f(&e) returns false.
-    /// This method operates in place, visiting each element exactly once in the original order,
-    /// but not preserves the order of the retained elements.
-    pub fn retain(&mut self, mut f: impl FnMut(&'static Node<T>) -> bool) {
-        let mut now = self.head;
-        while let Some(now_node) = now {
-            now = now_node.next;
-            if !f(now_node) {
-                // Remove it
-                self.remove(now_node);
-            }
+            spin_loop::spin();
+            root = new_root;
         }
     }
 }

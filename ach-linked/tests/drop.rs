@@ -3,11 +3,13 @@ use on_drop::OnDrop;
 
 #[test]
 fn test() {
-    let mut list = LinkedList::new();
+    let list = LinkedList::new();
 
     let (item, token) = OnDrop::token(1);
-    let mut node1 = Node::new_with(item);
-    list.push(unsafe { &mut *((&mut node1) as *mut _) });
+    let mut node1 = Node::new(item);
+    unsafe { list.push(&mut node1) };
+    list.remove(&mut node1);
+    assert!(list.is_empty());
 
     drop(node1);
     assert!(token.is_droped());
