@@ -11,14 +11,14 @@ repository = "https://github.com/rise0chen/ach.git"
 version = "0.1.5"
 
 [dependencies]
-ach-array = {version = "0.1", path = "../ach-array"}
-ach-cell = {version = "0.1", path = "../ach-cell"}
-ach-lazy = {version = "0.1", path = "../ach-lazy"}
-ach-mpmc = {version = "0.1", path = "../ach-mpmc"}
-ach-once = {version = "0.1", path = "../ach-once"}
-ach-option = {version = "0.1", path = "../ach-option"}
-ach-pool = {version = "0.1", path = "../ach-pool"}
-ach-pubsub = {version = "0.1", path = "../ach-pubsub"}
-ach-ring = {version = "0.1", path = "../ach-ring"}
-ach-spsc = {version = "0.1", path = "../ach-spsc"}
-ach-util = {version = "0.1", path = "../ach-util"}
+ach-array = {version = "0.1"}
+ach-cell = {version = "0.1"}
+ach-lazy = {version = "0.1"}
+ach-mpmc = {version = "0.1"}
+ach-once = {version = "0.1"}
+ach-option = {version = "0.1"}
+ach-pool = {version = "0.1"}
+ach-pubsub = {version = "0.1"}
+ach-ring = {version = "0.1"}
+ach-spsc = {version = "0.1"}
+ach-util = {version = "0.1"}

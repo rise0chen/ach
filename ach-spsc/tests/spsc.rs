@@ -12,7 +12,7 @@ fn test() {
     thread::spawn(move || {
         for i in TEST_DATA {
             loop {
-                let result = sender.send(i);
+                let result = sender.try_send(i);
                 if result.is_ok() {
                     break;
                 } else {
@@ -25,7 +25,7 @@ fn test() {
     let h = thread::spawn(move || {
         for i in TEST_DATA {
             loop {
-                let result = recver.recv();
+                let result = recver.try_recv();
                 if let Some(result) = result {
                     assert_eq!(result, i);
                     break;

@@ -7,12 +7,12 @@ fn test() {
     let mut sender = spsc.take_sender().unwrap();
     let mut receiver = spsc.take_recver().unwrap();
     let (item, token) = OnDrop::token(1);
-    assert!(sender.send(item).is_ok());
-    drop(receiver.recv().unwrap());
+    assert!(sender.try_send(item).is_ok());
+    drop(receiver.try_recv().unwrap());
     assert!(token.is_droped());
 
     let (item, token) = OnDrop::token(1);
-    assert!(sender.send(item).is_ok());
+    assert!(sender.try_send(item).is_ok());
     drop(sender);
     drop(receiver);
     drop(spsc);

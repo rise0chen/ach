@@ -8,7 +8,11 @@ license-file = "LICENSE"
 name = "ach-mpmc"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.4"
+version = "0.2.0"
+
+[features]
+alloc = []
+default = []
 
 [dependencies]
 ach-ring = {version = "0.1", path = "../ach-ring"}
