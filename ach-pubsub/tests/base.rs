@@ -18,10 +18,12 @@ fn base() {
     assert_eq!(sub2.try_recv().unwrap(), 2);
     assert!(PUB.subscribe().is_none());
     drop(sub2);
-    let sub3 = PUB.subscribe().unwrap();
-    assert_eq!(PUB.send(6), 2);
     assert_eq!(sub1.try_recv().unwrap(), 3);
     assert_eq!(sub1.try_recv().unwrap(), 5);
+    assert_eq!(PUB.send(6), 1);
+    let sub3 = PUB.subscribe().unwrap();
+    assert_eq!(PUB.send(7), 2);
     assert_eq!(sub1.try_recv().unwrap(), 6);
-    assert_eq!(sub3.try_recv().unwrap(), 6);
+    assert_eq!(sub1.try_recv().unwrap(), 7);
+    assert_eq!(sub3.try_recv().unwrap(), 7);
 }
