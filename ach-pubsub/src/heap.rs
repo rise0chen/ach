@@ -4,35 +4,46 @@ use ach_ring::Ring;
 use alloc::sync::Arc;
 use util::Error;
 
-pub struct Subscriber<T, const N: usize> {
-    ch: Arc<Ring<T, N>>,
+pub struct Subscriber<T, const NT: usize, const NS: usize> {
+    index: usize,
+    parent: Publisher<T, NT, NS>,
 }
-impl<T, const N: usize> Subscriber<T, N> {
+impl<T, const NT: usize, const NS: usize> Subscriber<T, NT, NS> {
+    fn ch(&self) -> Ref<Ring<T, NT>> {
+        self.parent.subscribers[self.index].try_get().unwrap()
+    }
     /// Removes the first element and returns it.
     ///
     /// Returns Err if the Ring is empty.
     pub fn try_recv(&self) -> Result<T, Error<()>> {
-        self.ch.pop()
+        self.ch().pop()
+    }
+}
+impl<T, const NT: usize, const NS: usize> Drop for Subscriber<T, NT, NS> {
+    fn drop(&mut self) {
+        self.ch().remove();
     }
 }
 
 pub struct Publisher<T, const NT: usize, const NS: usize> {
-    subscribers: Array<Arc<Ring<T, NT>>, NS>,
+    subscribers: Arc<Array<Ring<T, NT>, NS>>,
     strict: bool,
 }
 impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
     /// It will wait all subscriber ready when `send`, if strict is `true`.
-    pub const fn new(strict: bool) -> Publisher<T, NT, NS> {
+    pub fn new(strict: bool) -> Publisher<T, NT, NS> {
         Self {
-            subscribers: Array::new(),
+            subscribers: Arc::new(Array::new()),
             strict,
         }
     }
-    pub fn subscribe(&self) -> Option<Subscriber<T, NT>> {
-        let subscriber = Arc::new(Ring::new());
+    pub fn subscribe(&self) -> Option<Subscriber<T, NT, NS>> {
+        let subscriber = Ring::new();
         if let Ok(i) = self.subscribers.push(subscriber) {
-            let sub = self.subscribers[i].get().unwrap();
-            Some(Subscriber { ch: sub.clone() })
+            Some(Subscriber {
+                index: i,
+                parent: self.clone(),
+            })
         } else {
             None
         }
@@ -46,10 +57,6 @@ impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
         let mut success: usize = 0;
         let mut send = None;
         for sub in self.subscribers.iter(self.strict) {
-            if Arc::strong_count(&sub) <= 1 {
-                sub.remove();
-                continue;
-            }
             let value = if let Some(v) = send.take() {
                 v
             } else {
@@ -62,5 +69,10 @@ impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
             }
         }
         success
+    }
+}
+impl<T, const NT: usize, const NS: usize> Clone for Publisher<T, NT, NS> {
+    fn clone(&self) -> Self {
+        Self { subscribers: self.subscribers.clone(), strict: self.strict }
     }
 }
