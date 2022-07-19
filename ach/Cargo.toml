@@ -8,7 +8,7 @@ license-file = "LICENSE"
 name = "ach"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.2.0"
+version = "0.2.1"
 
 [features]
 alloc = ["ach-mpmc/alloc", "ach-spsc/alloc"]
@@ -22,7 +22,7 @@ ach-mpmc = {version = "0.2"}
 ach-once = {version = "0.1"}
 ach-option = {version = "0.1"}
 ach-pool = {version = "0.1"}
-ach-pubsub = {version = "0.1"}
+ach-pubsub = {version = "0.2"}
 ach-ring = {version = "0.1"}
 ach-spsc = {version = "0.2"}
 ach-util = {version = "0.1"}
