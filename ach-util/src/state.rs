@@ -6,7 +6,8 @@ pub enum MemoryState {
     Initializing = 1,
     Initialized = 2,
     Erasing = 3,
-    Referred = 4,
+    /// 被多次借用时，获取独占权
+    Regaining = 5,
     Unknown,
 }
 impl MemoryState {
@@ -22,14 +23,14 @@ impl MemoryState {
     pub fn is_erasing(&self) -> bool {
         self == &Self::Erasing
     }
-    pub fn is_referred(&self) -> bool {
-        self == &Self::Referred
+    pub fn is_regaining(&self) -> bool {
+        self == &Self::Regaining
     }
     pub fn is_unknown(&self) -> bool {
         self == &Self::Unknown
     }
     pub fn is_transient(&self) -> bool {
-        self == &Self::Initializing || self == &Self::Erasing
+        self == &Self::Initializing || self == &Self::Erasing || self == &Self::Regaining
     }
 }
 impl From<u8> for MemoryState {
@@ -39,7 +40,7 @@ impl From<u8> for MemoryState {
             s if s == MemoryState::Initializing as u8 => MemoryState::Initializing,
             s if s == MemoryState::Initialized as u8 => MemoryState::Initialized,
             s if s == MemoryState::Erasing as u8 => MemoryState::Erasing,
-            s if s == MemoryState::Referred as u8 => MemoryState::Referred,
+            s if s == MemoryState::Regaining as u8 => MemoryState::Regaining,
             _ => MemoryState::Unknown,
         }
     }

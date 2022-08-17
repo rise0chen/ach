@@ -1,82 +1,63 @@
 use super::state::MemoryState;
 
-const REF1: u32 = u8::MAX as u32 + 1;
-const REF_MAX: usize = (0x00FF_FFFF - REF1 + 1) as usize;
-
 pub type AtomicMemoryRefer = atomic::Atomic<MemoryRefer>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryRefer(u32);
 impl MemoryRefer {
-    pub const UNINITIALIZED: Self = Self(MemoryState::Uninitialized as u32);
-    pub const INITIALIZING: Self = Self(MemoryState::Initializing as u32);
-    pub const INITIALIZED: Self = Self(MemoryState::Initialized as u32);
-    pub const ERASING: Self = Self(MemoryState::Erasing as u32);
-    pub const REF1: Self = Self(REF1);
     /// Uninitialized
-    pub const fn new() -> MemoryRefer {
-        Self(MemoryState::Uninitialized as u32)
+    pub const fn new() -> Self {
+        Self(0)
     }
     pub fn state(&self) -> MemoryState {
-        if self.0 < REF1 {
-            (self.0 as u8).into()
-        } else {
-            MemoryState::Referred
-        }
+        ((self.0 >> 24) as u8).into()
     }
-    pub fn set_state(&mut self, val: MemoryState) -> Result<(), MemoryState> {
-        if self.0 < REF1 {
-            self.0 = u8::from(val) as u32;
-            Ok(())
-        } else {
-            Err(MemoryState::Referred)
-        }
+    pub fn set_state(&mut self, val: MemoryState) {
+        self.0 = (self.0 & 0x00FF_FFFF) | ((u8::from(val) as u32) << 24);
     }
-    pub fn can_refer(&self) -> bool {
-        let state = self.state();
-        if state == MemoryState::Initialized || state == MemoryState::Referred {
-            true
-        } else {
-            false
-        }
+    pub const fn max_refer() -> usize {
+        0x00FF_FFFF
     }
     pub fn ref_num(&self) -> Result<usize, MemoryState> {
-        if self.0 >= REF1 {
-            Ok((self.0 - REF1 + 1) as usize)
-        } else if self.state().is_initialized() {
-            Ok(0)
+        let state = self.state();
+        if state.is_initialized() || state.is_regaining() || state.is_erasing() {
+            Ok((self.0 as usize) & 0x00FF_FFFF)
         } else {
-            Err((self.0 as u8).into())
+            Err(state)
         }
     }
     pub fn ref_add(&mut self) -> Result<(), MemoryState> {
         let ref_num = self.ref_num()?;
-        if ref_num == REF_MAX {
+        if ref_num == Self::max_refer() {
             return Ok(());
         }
-        if ref_num == 0 {
-            self.0 = REF1;
-        } else {
+        let state = self.state();
+        if state.is_initialized() {
             self.0 += 1;
+            Ok(())
+        } else {
+            Err(state)
         }
-        Ok(())
     }
     pub fn ref_sub(&mut self) -> Result<(), MemoryState> {
         let ref_num = self.ref_num()?;
-        if ref_num == REF_MAX || ref_num == 0 {
+        if ref_num == Self::max_refer() || ref_num == 0 {
             return Ok(());
         }
-        if ref_num == 1 {
-            self.0 = MemoryState::Initialized as u32;
-        } else {
+        let state = self.state();
+        if state.is_initialized() || state.is_regaining() {
             self.0 -= 1;
+            Ok(())
+        } else {
+            Err(state)
         }
-        Ok(())
     }
 }
 impl From<MemoryState> for MemoryRefer {
     fn from(s: MemoryState) -> Self {
-        Self(s as u32)
+        let mut refer = MemoryRefer::new();
+        refer.set_state(s);
+        refer
     }
 }
 impl From<u32> for MemoryRefer {

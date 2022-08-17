@@ -73,6 +73,9 @@ impl<T: Clone, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
 }
 impl<T, const NT: usize, const NS: usize> Clone for Publisher<T, NT, NS> {
     fn clone(&self) -> Self {
-        Self { subscribers: self.subscribers.clone(), strict: self.strict }
+        Self {
+            subscribers: self.subscribers.clone(),
+            strict: self.strict,
+        }
     }
 }

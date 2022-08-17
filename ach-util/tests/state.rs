@@ -18,13 +18,13 @@ fn test() {
     );
     assert_eq!(MemoryState::Erasing, u8::from(MemoryState::Erasing).into());
     assert_eq!(
-        MemoryState::Referred,
-        u8::from(MemoryState::Referred).into()
+        MemoryState::Regaining,
+        u8::from(MemoryState::Regaining).into()
     );
 
     assert!(MemoryState::Uninitialized.is_uninitialized());
     assert!(MemoryState::Initializing.is_initializing());
     assert!(MemoryState::Initialized.is_initialized());
     assert!(MemoryState::Erasing.is_erasing());
-    assert!(MemoryState::Referred.is_referred());
+    assert!(MemoryState::Regaining.is_regaining());
 }
