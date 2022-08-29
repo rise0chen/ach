@@ -20,7 +20,10 @@ impl<T> Node<T> {
     pub fn next(&mut self) -> Option<&mut Node<T>> {
         unsafe { Some(self.next?.as_mut()) }
     }
-    fn last(&mut self) -> &mut Node<T> {
+    pub fn take_next(&mut self) -> Option<&mut Node<T>> {
+        unsafe { Some(self.next.take()?.as_mut()) }
+    }
+    pub fn last(&mut self) -> &mut Node<T> {
         let mut now = self;
         loop {
             if let Some(next) = &mut now.next {
@@ -29,6 +32,9 @@ impl<T> Node<T> {
                 return now;
             }
         }
+    }
+    pub fn push(&mut self, node: &mut Node<T>) {
+        self.last().next = Some(node.into());
     }
     /// remove child which eq node.
     ///
@@ -63,11 +69,14 @@ impl<T> DerefMut for Node<T> {
 
 pub struct LinkedList<T> {
     head: AtomicPtr<Node<T>>,
+    will_remove: [AtomicPtr<Node<T>>; 4],
 }
 impl<T> LinkedList<T> {
+    const NONE_NODE: AtomicPtr<Node<T>> = AtomicPtr::new(ptr::null_mut());
     pub const fn new() -> Self {
         Self {
-            head: AtomicPtr::new(ptr::null_mut()),
+            head: Self::NONE_NODE,
+            will_remove: [Self::NONE_NODE; 4],
         }
     }
 
@@ -116,26 +125,40 @@ impl<T> LinkedList<T> {
 
     /// Removes a node from the LinkedList.
     pub fn remove(&self, node: &mut Node<T>) {
-        let mut root = self.take_all();
-        loop {
-            if let Some(root) = &mut root {
-                if (*root) as *const _ == node as *const _ {
-                    if let Some(next) = root.next() {
-                        unsafe { self.push_list(next) };
-                    }
-                    return;
-                } else {
-                    if root.remove_node(node) {
-                        unsafe { self.push_list(*root) };
-                        return;
-                    }
-                }
-            }
-            let new_root = self.take_all();
-            if let Some(root) = root {
-                unsafe { self.push_list(root) };
+        let my_node = loop {
+            let node = self.will_remove.iter().find(|x| {
+                x.compare_exchange(ptr::null_mut(), node as *mut _, Relaxed, Relaxed)
+                    .is_ok()
+            });
+            if let Some(node) = node {
+                break node;
             }
             spin_loop::spin();
+        };
+
+        let mut root = self.take_all();
+        loop {
+            while let Some(node) = &mut root {
+                let next = node.take_next().map(|x| x as *mut Node<T>);
+                if self
+                    .will_remove
+                    .iter()
+                    .find(|x| {
+                        x.compare_exchange((*node) as *mut _, ptr::null_mut(), Relaxed, Relaxed)
+                            .is_ok()
+                    })
+                    .is_none()
+                {
+                    unsafe { self.push(*node) };
+                }
+                drop(node);
+                root = next.map(|x| unsafe { &mut *x });
+            }
+            if my_node.load(Relaxed) != node as *mut _ {
+                return;
+            }
+            spin_loop::spin();
+            let new_root = self.take_all();
             root = new_root;
         }
     }
