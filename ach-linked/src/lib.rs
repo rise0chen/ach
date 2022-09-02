@@ -20,7 +20,7 @@ impl<T> Node<T> {
     pub fn next(&mut self) -> Option<&mut Node<T>> {
         unsafe { Some(self.next?.as_mut()) }
     }
-    pub fn take_next(&mut self) -> Option<&mut Node<T>> {
+    pub fn take_next<'a,'b>(&'a mut self) -> Option<&'b mut Node<T>> {
         unsafe { Some(self.next.take()?.as_mut()) }
     }
     pub fn last(&mut self) -> &mut Node<T> {
@@ -33,13 +33,30 @@ impl<T> Node<T> {
             }
         }
     }
-    pub fn push(&mut self, node: &mut Node<T>) {
-        self.last().next = Some(node.into());
+    /// Adds a node to the LinkedList.
+    ///  
+    /// Safety:
+    /// This function is only safe as long as `node` is guaranteed to
+    /// get removed from the list before it gets moved or dropped.
+    pub unsafe fn push(&mut self, node: &mut Node<T>) {
+        assert!(node.next.is_none());
+        node.next = self.next;
+        self.next = Some(node.into());
+    }
+    /// Adds a list to the LinkedList.
+    ///
+    /// Safety:
+    /// This function is only safe as long as `node` is guaranteed to
+    /// get removed from the list before it gets moved or dropped.
+    pub unsafe fn push_list(&mut self, node: &mut Node<T>) {
+        let last = node.last() as *mut Node<T>;
+        (*last).next = self.next;
+        self.next = Some(node.into());
     }
     /// remove child which eq node.
     ///
     /// Notice: can't remove head node.
-    fn remove_node(&mut self, node: &mut Node<T>) -> bool {
+    pub fn remove_node(&mut self, node: &mut Node<T>) -> bool {
         let mut now = self;
         loop {
             if let Some(next) = &mut now.next {
@@ -54,6 +71,9 @@ impl<T> Node<T> {
             }
         }
     }
+    pub fn into_iter(&mut self) -> NodeIter<T> {
+        NodeIter { node: Some(self) }
+    }
 }
 impl<T> Deref for Node<T> {
     type Target = T;
@@ -64,6 +84,23 @@ impl<T> Deref for Node<T> {
 impl<T> DerefMut for Node<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.val
+    }
+}
+
+pub struct NodeIter<'a, T> {
+    node: Option<&'a mut Node<T>>,
+}
+impl<'a, T> Iterator for NodeIter<'a, T> {
+    type Item = &'a mut Node<T>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.node.as_mut().map(|x| *x as *mut Node<T>);
+        if let Some(node) = node.map(|x| unsafe { &mut *x }) {
+            let next = node.take_next();
+            self.node = next;
+            Some(node)
+        } else {
+            None
+        }
     }
 }
 
@@ -98,9 +135,7 @@ impl<T> LinkedList<T> {
     /// This function is only safe as long as `node` is guaranteed to
     /// get removed from the list before it gets moved or dropped.
     pub unsafe fn push(&self, node: &mut Node<T>) {
-        if node.next.is_some() {
-            return;
-        }
+        assert!(node.next.is_none());
         self.head
             .fetch_update(Relaxed, Relaxed, |p| {
                 node.next = p.as_mut().map(|x| x.into());
@@ -139,7 +174,7 @@ impl<T> LinkedList<T> {
         let mut root = self.take_all();
         loop {
             while let Some(node) = &mut root {
-                let next = node.take_next().map(|x| x as *mut Node<T>);
+                let next = node.take_next();
                 if self
                     .will_remove
                     .iter()
@@ -152,7 +187,7 @@ impl<T> LinkedList<T> {
                     unsafe { self.push(*node) };
                 }
                 drop(node);
-                root = next.map(|x| unsafe { &mut *x });
+                root = next;
             }
             if my_node.load(Relaxed) != node as *mut _ {
                 return;
