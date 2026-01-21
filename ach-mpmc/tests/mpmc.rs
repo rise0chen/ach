@@ -1,4 +1,4 @@
-use ach_mpmc::Mpmc;
+use ach_mpmc::heapless::Mpmc;
 use std::ops::Range;
 use std::thread;
 

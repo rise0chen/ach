@@ -1,4 +1,4 @@
-use ach_mpmc::Mpmc;
+use ach_mpmc::heapless::Mpmc;
 
 #[test]
 fn base() {

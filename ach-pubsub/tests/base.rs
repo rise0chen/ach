@@ -1,4 +1,4 @@
-use ach_pubsub::Publisher;
+use ach_pubsub::heapless::Publisher;
 
 #[test]
 fn base() {

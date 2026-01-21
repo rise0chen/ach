@@ -1,4 +1,4 @@
-use ach_spsc::Spsc;
+use ach_spsc::heapless::Spsc;
 
 #[test]
 fn base() {
