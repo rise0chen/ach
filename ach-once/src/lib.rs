@@ -42,6 +42,7 @@ impl<T> Once<T> {
     pub fn into_inner(self) -> Option<T> {
         if self.is_initialized() {
             let ret = unsafe { ptr::read(self.ptr()) };
+            self.state.store(MemoryState::Uninitialized.into(), SeqCst);
             Some(ret)
         } else {
             None
