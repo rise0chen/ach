@@ -10,6 +10,11 @@ pub struct AchOption<T> {
     val: MaybeUninit<T>,
     state: AtomicMemoryState,
 }
+impl<T> Default for AchOption<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T> AchOption<T> {
     pub const fn new() -> Self {
         Self {
@@ -61,7 +66,7 @@ impl<T> AchOption<T> {
             }
         } else {
             let ret = unsafe { ptr::read(self.ptr()) };
-            self.state.store(MemoryState::Uninitialized.into(), SeqCst);
+            self.state.store(MemoryState::Uninitialized, SeqCst);
             Ok(Some(ret))
         }
     }
@@ -78,8 +83,8 @@ impl<T> AchOption<T> {
     pub fn try_set(&self, value: T) -> Result<(), Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.compare_exchange(
-            MemoryState::Uninitialized.into(),
-            MemoryState::Initializing.into(),
+            MemoryState::Uninitialized,
+            MemoryState::Initializing,
             SeqCst,
             Relaxed,
         ) {
@@ -90,7 +95,7 @@ impl<T> AchOption<T> {
             })
         } else {
             unsafe { ptr::write(self.ptr(), value) };
-            self.state.store(MemoryState::Initialized.into(), SeqCst);
+            self.state.store(MemoryState::Initialized, SeqCst);
             Ok(())
         }
     }
@@ -109,7 +114,7 @@ impl<T> AchOption<T> {
         let _cs = CriticalSection::new();
         match self.state.fetch_update(SeqCst, Relaxed, |x| {
             if x.is_uninitialized() || x.is_initialized() {
-                Some(MemoryState::Initializing.into())
+                Some(MemoryState::Initializing)
             } else {
                 None
             }
@@ -121,7 +126,7 @@ impl<T> AchOption<T> {
                     Some(unsafe { ptr::read(self.ptr()) })
                 };
                 unsafe { ptr::write(self.ptr(), value) };
-                self.state.store(MemoryState::Initialized.into(), SeqCst);
+                self.state.store(MemoryState::Initialized, SeqCst);
                 Ok(ret)
             }
             Err(state) => Err(Error {
@@ -138,7 +143,7 @@ impl<T> AchOption<T> {
         unwrap(|val| self.try_replace(val), value)
     }
 }
-impl<'a, T: fmt::Debug> fmt::Debug for AchOption<T> {
+impl<T: fmt::Debug> fmt::Debug for AchOption<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let v = if self.is_some() {
             Some(unsafe { self.val.assume_init_ref() })

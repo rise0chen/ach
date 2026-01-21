@@ -10,6 +10,11 @@ pub struct Once<T> {
     val: MaybeUninit<T>,
     state: AtomicMemoryState,
 }
+impl<T> Default for Once<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T> Once<T> {
     pub const fn new() -> Self {
         Once {
@@ -33,7 +38,7 @@ impl<T> Once<T> {
     pub fn take(&mut self) -> Option<T> {
         if self.is_initialized() {
             let ret = unsafe { ptr::read(self.ptr()) };
-            self.state.store(MemoryState::Uninitialized.into(), SeqCst);
+            self.state.store(MemoryState::Uninitialized, SeqCst);
             Some(ret)
         } else {
             None
@@ -42,7 +47,7 @@ impl<T> Once<T> {
     pub fn into_inner(self) -> Option<T> {
         if self.is_initialized() {
             let ret = unsafe { ptr::read(self.ptr()) };
-            self.state.store(MemoryState::Uninitialized.into(), SeqCst);
+            self.state.store(MemoryState::Uninitialized, SeqCst);
             Some(ret)
         } else {
             None
@@ -88,8 +93,8 @@ impl<T> Once<T> {
     pub fn try_set(&self, value: T) -> Result<(), Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(state) = self.state.compare_exchange(
-            MemoryState::Uninitialized.into(),
-            MemoryState::Initializing.into(),
+            MemoryState::Uninitialized,
+            MemoryState::Initializing,
             SeqCst,
             SeqCst,
         ) {
@@ -100,7 +105,7 @@ impl<T> Once<T> {
             })
         } else {
             unsafe { ptr::write(self.ptr(), value) };
-            self.state.store(MemoryState::Initialized.into(), SeqCst);
+            self.state.store(MemoryState::Initialized, SeqCst);
             Ok(())
         }
     }
@@ -119,8 +124,8 @@ impl<T> Once<T> {
     pub fn get_or_try_init(&self, value: T) -> Result<&T, Error<T>> {
         let _cs = CriticalSection::new();
         if let Err(_) = self.state.compare_exchange(
-            MemoryState::Uninitialized.into(),
-            MemoryState::Initializing.into(),
+            MemoryState::Uninitialized,
+            MemoryState::Initializing,
             SeqCst,
             SeqCst,
         ) {
@@ -137,7 +142,7 @@ impl<T> Once<T> {
             )
         } else {
             unsafe { ptr::write(self.ptr(), value) };
-            self.state.store(MemoryState::Initialized.into(), SeqCst);
+            self.state.store(MemoryState::Initialized, SeqCst);
             Ok(unsafe { self.val.assume_init_ref() })
         }
     }

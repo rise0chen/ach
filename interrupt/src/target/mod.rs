@@ -5,6 +5,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(not(target_os = "none"))] {
         // Disable interrupt if using an OS
         #[path = "mock.rs"]
+        #[allow(clippy::module_inception)]
         mod target;
     } else if #[cfg(target_arch = "arm")] {
         #[path = "cortex_m.rs"]

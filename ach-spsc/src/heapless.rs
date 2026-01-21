@@ -44,6 +44,11 @@ pub struct Spsc<T, const N: usize> {
     has_sender: AtomicBool,
     has_receiver: AtomicBool,
 }
+impl<T, const N: usize> Default for Spsc<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T, const N: usize> Spsc<T, N> {
     const CAPACITY: usize = N;
     pub const fn new() -> Self {
@@ -55,7 +60,7 @@ impl<T, const N: usize> Spsc<T, N> {
             has_receiver: AtomicBool::new(true),
         }
     }
-    pub fn take_sender(&self) -> Option<Sender<T, N>> {
+    pub fn take_sender(&self) -> Option<Sender<'_, T, N>> {
         match self
             .has_sender
             .compare_exchange(true, false, SeqCst, SeqCst)
@@ -67,7 +72,7 @@ impl<T, const N: usize> Spsc<T, N> {
     pub(crate) unsafe fn free_sender(&self) {
         self.has_sender.store(true, SeqCst)
     }
-    pub fn take_recver(&self) -> Option<Receiver<T, N>> {
+    pub fn take_recver(&self) -> Option<Receiver<'_, T, N>> {
         match self
             .has_receiver
             .compare_exchange(true, false, SeqCst, SeqCst)

@@ -22,7 +22,7 @@ fn test() {
     for _ in TEST_DATA {
         handle.push(thread::spawn(move || loop {
             let result = ARRAY.pop();
-            if let Some(_) = result {
+            if result.is_some() {
                 break;
             } else {
                 thread::yield_now();

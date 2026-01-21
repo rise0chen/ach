@@ -8,6 +8,11 @@ pub struct CriticalSection<'cs> {
     inner: bare_metal::CriticalSection<'cs>,
     mask: u32,
 }
+impl<'cs> Default for CriticalSection<'cs> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<'cs> CriticalSection<'cs> {
     /// Into a critical section. And exit the critical section, when it drop.
     pub fn new() -> Self {

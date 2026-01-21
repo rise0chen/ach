@@ -6,8 +6,14 @@ use core::ops::Index;
 pub struct Pool<T, const N: usize> {
     buf: [AchOption<T>; N],
 }
+impl<T, const N: usize> Default for Pool<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T, const N: usize> Pool<T, N> {
     const CAPACITY: usize = N;
+    #[allow(clippy::declare_interior_mutable_const)]
     const INIT_ITEM: AchOption<T> = AchOption::new();
     pub const fn new() -> Self {
         Pool {

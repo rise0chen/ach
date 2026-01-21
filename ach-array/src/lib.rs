@@ -7,8 +7,14 @@ use core::ops::Index;
 pub struct Array<T, const N: usize> {
     buf: [Cell<T>; N],
 }
+impl<T, const N: usize> Default for Array<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T, const N: usize> Array<T, N> {
     const CAPACITY: usize = N;
+    #[allow(clippy::declare_interior_mutable_const)]
     const INIT_ITEM: Cell<T> = Cell::new();
     pub const fn new() -> Self {
         Array {
@@ -49,7 +55,7 @@ impl<T, const N: usize> Array<T, N> {
     }
     /// It will ignore values which is transient if strict is `false`
     /// Notice: `Spin` if strict
-    pub fn iter(&self, strict: bool) -> ArrayIterator<T, N> {
+    pub fn iter(&self, strict: bool) -> ArrayIterator<'_, T, N> {
         ArrayIterator {
             vec: self,
             index: 0,

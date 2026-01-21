@@ -29,14 +29,19 @@ impl<'a, T, const N: usize> Receiver<'a, T, N> {
 pub struct Mpmc<T, const N: usize> {
     ring: Ring<T, N>,
 }
+impl<T, const N: usize> Default for Mpmc<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T, const N: usize> Mpmc<T, N> {
     pub const fn new() -> Self {
         Mpmc { ring: Ring::new() }
     }
-    pub const fn sender(&self) -> Sender<T, N> {
+    pub const fn sender(&self) -> Sender<'_, T, N> {
         Sender::new(self)
     }
-    pub const fn recver(&self) -> Receiver<T, N> {
+    pub const fn recver(&self) -> Receiver<'_, T, N> {
         Receiver::new(self)
     }
 }

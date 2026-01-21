@@ -1,15 +1,9 @@
 use ach_ring::Ring;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use crossbeam_queue::ArrayQueue;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
-
-#[derive(Clone, Debug)]
-struct Message;
-impl Drop for Message {
-    fn drop(&mut self) {}
-}
 
 pub fn mpsc(c: &mut Criterion) {
     const THREAD_NUM: usize = 4;
@@ -25,7 +19,7 @@ pub fn mpsc(c: &mut Criterion) {
                 for _ in 0..THREAD_NUM {
                     scope.spawn(move |_| {
                         for _ in 0..msgs / THREAD_NUM {
-                            while let Err(_) = RING.push(Default::default()) {
+                            while  RING.push(Default::default()).is_err() {
                                 thread::yield_now();
                             }
                         }
@@ -33,7 +27,7 @@ pub fn mpsc(c: &mut Criterion) {
                 }
 
                 for _ in 0..msgs {
-                    while let Err(_) = RING.pop() {}
+                    while RING.pop().is_err() {}
                 }
             })
             .unwrap();
@@ -53,7 +47,7 @@ pub fn mpsc(c: &mut Criterion) {
                     let tx = queue.clone();
                     scope.spawn(move |_| {
                         for _ in 0..msgs / THREAD_NUM {
-                            while let Err(_) = tx.push(Default::default()) {
+                            while tx.push(Default::default()).is_err() {
                                 thread::yield_now();
                             }
                         }

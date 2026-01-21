@@ -69,16 +69,14 @@ impl PartialOrd for MemoryRing {
         let ord = self_cycle.partial_cmp(&other_cycle);
         if ord == Some(Ordering::Equal) {
             self.state().partial_cmp(&other.state())
+        } else if self_cycle < max_cycle / 4 && other_cycle > max_cycle / 4 * 3 {
+            // self overflow
+            Some(Ordering::Greater)
+        } else if self_cycle > max_cycle / 4 * 3 && other_cycle < max_cycle / 4 {
+            // other overflow
+            Some(Ordering::Less)
         } else {
-            if self_cycle < max_cycle / 4 && other_cycle > max_cycle / 4 * 3 {
-                // self overflow
-                Some(Ordering::Greater)
-            } else if self_cycle > max_cycle / 4 * 3 && other_cycle < max_cycle / 4 {
-                // other overflow
-                Some(Ordering::Less)
-            } else {
-                ord
-            }
+            ord
         }
     }
 }

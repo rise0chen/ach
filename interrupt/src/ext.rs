@@ -9,6 +9,7 @@ pub fn disable_mask(mask: u32) -> u32 {
 }
 
 /// Enables specific interrupts and returns the previous setting
+/// # Safety
 #[inline]
 pub unsafe fn enable_mask(mask: u32) -> u32 {
     let prev = get_mask();
@@ -23,6 +24,7 @@ pub fn disable() -> u32 {
 }
 
 /// Enables all interrupts and returns the previous setting
+/// # Safety
 #[inline]
 pub unsafe fn enable() -> u32 {
     enable_mask(MASK_ALL)

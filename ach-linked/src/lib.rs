@@ -17,10 +17,10 @@ impl<T> Node<T> {
             _pin: PhantomPinned,
         }
     }
-    pub fn next(&mut self) -> Option<&mut Node<T>> {
+    pub fn next<'b>(&mut self) -> Option<&'b mut Node<T>> {
         unsafe { Some(self.next?.as_mut()) }
     }
-    pub fn take_next<'a,'b>(&'a mut self) -> Option<&'b mut Node<T>> {
+    pub fn take_next<'b>(&mut self) -> Option<&'b mut Node<T>> {
         unsafe { Some(self.next.take()?.as_mut()) }
     }
     pub fn last(&mut self) -> &mut Node<T> {
@@ -35,7 +35,7 @@ impl<T> Node<T> {
     }
     /// Adds a node to the LinkedList.
     ///  
-    /// Safety:
+    /// # Safety
     /// This function is only safe as long as `node` is guaranteed to
     /// get removed from the list before it gets moved or dropped.
     pub unsafe fn push(&mut self, node: &mut Node<T>) {
@@ -45,7 +45,7 @@ impl<T> Node<T> {
     }
     /// Adds a list to the LinkedList.
     ///
-    /// Safety:
+    /// # Safety
     /// This function is only safe as long as `node` is guaranteed to
     /// get removed from the list before it gets moved or dropped.
     pub unsafe fn push_list(&mut self, node: &mut Node<T>) {
@@ -61,7 +61,7 @@ impl<T> Node<T> {
         loop {
             if let Some(next) = &mut now.next {
                 let next = unsafe { next.as_mut() };
-                if next as *const _ == node as *const _ {
+                if core::ptr::eq(next, node) {
                     now.next = next.next;
                     return true;
                 }
@@ -71,7 +71,7 @@ impl<T> Node<T> {
             }
         }
     }
-    pub fn into_iter(&mut self) -> NodeIter<T> {
+    pub fn into_iter(&mut self) -> NodeIter<'_, T> {
         NodeIter { node: Some(self) }
     }
 }
@@ -108,7 +108,13 @@ pub struct LinkedList<T> {
     head: AtomicPtr<Node<T>>,
     will_remove: [AtomicPtr<Node<T>>; 4],
 }
+impl<T> Default for LinkedList<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T> LinkedList<T> {
+    #[allow(clippy::declare_interior_mutable_const)]
     const NONE_NODE: AtomicPtr<Node<T>> = AtomicPtr::new(ptr::null_mut());
     pub const fn new() -> Self {
         Self {
@@ -125,13 +131,14 @@ impl<T> LinkedList<T> {
     /// delete all entries from LinkedList
     ///
     /// If list is empty, return NULL, otherwise, delete all entries and return the pointer to the first entry.
+    #[allow(clippy::mut_from_ref)]
     pub fn take_all(&self) -> Option<&mut Node<T>> {
         unsafe { self.head.swap(ptr::null_mut(), Relaxed).as_mut() }
     }
 
     /// Adds a node to the LinkedList.
     ///  
-    /// Safety:
+    /// # Safety
     /// This function is only safe as long as `node` is guaranteed to
     /// get removed from the list before it gets moved or dropped.
     pub unsafe fn push(&self, node: &mut Node<T>) {
@@ -145,7 +152,7 @@ impl<T> LinkedList<T> {
     }
     /// Adds a list to the LinkedList.
     ///
-    /// Safety:
+    /// # Safety
     /// This function is only safe as long as `node` is guaranteed to
     /// get removed from the list before it gets moved or dropped.
     pub unsafe fn push_list(&self, node: &mut Node<T>) {
@@ -175,21 +182,15 @@ impl<T> LinkedList<T> {
         loop {
             while let Some(node) = &mut root {
                 let next = node.take_next();
-                if self
-                    .will_remove
-                    .iter()
-                    .find(|x| {
-                        x.compare_exchange((*node) as *mut _, ptr::null_mut(), Relaxed, Relaxed)
-                            .is_ok()
-                    })
-                    .is_none()
-                {
+                if !self.will_remove.iter().any(|x| {
+                    x.compare_exchange((*node) as *mut _, ptr::null_mut(), Relaxed, Relaxed)
+                        .is_ok()
+                }) {
                     unsafe { self.push(*node) };
                 }
-                drop(node);
                 root = next;
             }
-            if my_node.load(Relaxed) != node as *mut _ {
+            if !core::ptr::eq(my_node.load(Relaxed), node) {
                 return;
             }
             spin_loop::spin();

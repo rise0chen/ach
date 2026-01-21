@@ -32,7 +32,7 @@ impl<T, const NT: usize, const NS: usize> Publisher<T, NT, NS> {
             strict,
         }
     }
-    pub fn subscribe(&self) -> Option<Subscriber<T, NT>> {
+    pub fn subscribe(&self) -> Option<Subscriber<'_, T, NT>> {
         let subscriber = Ring::new();
         if let Ok(i) = self.subscribers.push(subscriber) {
             let sub = self.subscribers[i].get().unwrap();

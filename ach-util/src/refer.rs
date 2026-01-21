@@ -4,6 +4,11 @@ pub type AtomicMemoryRefer = atomic::Atomic<MemoryRefer>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryRefer(u32);
+impl Default for MemoryRefer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl MemoryRefer {
     /// Uninitialized
     pub const fn new() -> Self {

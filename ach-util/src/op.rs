@@ -29,6 +29,11 @@ pub type AtomicMemoryOp = atomic::Atomic<MemoryOp>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryOp(u32);
+impl Default for MemoryOp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl MemoryOp {
     pub const fn new() -> MemoryOp {
         Self(0)

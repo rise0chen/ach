@@ -12,9 +12,15 @@ pub struct Ring<T, const N: usize> {
     end: AtomicUsize,
     pub ops: [AtomicMemoryRing; N],
 }
+impl<T, const N: usize> Default for Ring<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl<T, const N: usize> Ring<T, N> {
     const CAPACITY: usize = N;
     const WRAP_MAX: usize = MemoryRing::max_idx(Self::CAPACITY);
+    #[allow(clippy::declare_interior_mutable_const)]
     const INIT_STATE: AtomicMemoryRing = AtomicMemoryRing::new(MemoryRing::INIT);
     pub const fn new() -> Self {
         Ring {

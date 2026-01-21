@@ -31,7 +31,7 @@ impl<'a, T> Deref for Ref<'a, T> {
 }
 impl<'a, T: fmt::Debug> fmt::Debug for Ref<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let v: &T = &*self;
+        let v: &T = self;
         fmt::Debug::fmt(&v, f)
     }
 }
@@ -61,6 +61,11 @@ impl<'a, T> Drop for Ref<'a, T> {
 pub struct Cell<T> {
     val: MaybeUninit<T>,
     state: AtomicMemoryRefer,
+}
+impl<T> Default for Cell<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 impl<T> Cell<T> {
     pub const fn new() -> Self {
@@ -139,13 +144,15 @@ impl<T> Cell<T> {
         retry(|_| self.try_take(), ())
     }
 
+    /// # Safety
+    /// Calling this when the content is not yet fully initialized causes undefined behavior: it is up to the caller to guarantee that the MaybeUninit<T> really is in an initialized state.
     pub unsafe fn peek(&self) -> &T {
         self.val.assume_init_ref()
     }
     /// Tries to get a reference to the value of the Cell.
     ///
     /// Returns Err if the cell is uninitialized, in operation or in critical section.
-    pub fn try_get(&self) -> Result<Ref<T>, Error<()>> {
+    pub fn try_get(&self) -> Result<Ref<'_, T>, Error<()>> {
         if let Err(state) = self.state.fetch_update(SeqCst, Relaxed, |mut x| {
             if x.ref_add().is_ok() {
                 Some(x)
@@ -168,7 +175,7 @@ impl<T> Cell<T> {
     /// Returns Err if the cell is uninitialized.
     ///
     /// Notice: `Spin`
-    pub fn get(&self) -> Result<Ref<T>, Error<()>> {
+    pub fn get(&self) -> Result<Ref<'_, T>, Error<()>> {
         retry(|_| self.try_get(), ())
     }
 
@@ -268,7 +275,7 @@ impl<T> Cell<T> {
     /// Tries to get a reference to the value of the Cell.
     ///
     /// Returns Err if the cell is in critical section.
-    pub fn get_or_try_init(&self, value: T) -> Result<Ref<T>, Error<T>> {
+    pub fn get_or_try_init(&self, value: T) -> Result<Ref<'_, T>, Error<T>> {
         let ret = self.try_set(value);
         if let Ok(v) = self.try_get() {
             Ok(v)
@@ -279,17 +286,13 @@ impl<T> Cell<T> {
     /// Tries to get a reference to the value of the Cell.
     ///
     /// Notice: `Spin`
-    pub fn get_or_init(&self, value: T) -> Ref<T> {
+    pub fn get_or_init(&self, value: T) -> Ref<'_, T> {
         retry(|v| self.get_or_try_init(v), value).unwrap()
     }
 }
-impl<'a, T: fmt::Debug> fmt::Debug for Cell<T> {
+impl<T: fmt::Debug> fmt::Debug for Cell<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let v = if let Ok(v) = self.try_get() {
-            Some(v)
-        } else {
-            None
-        };
+        let v = self.try_get().ok();
         fmt::Debug::fmt(&v, f)
     }
 }

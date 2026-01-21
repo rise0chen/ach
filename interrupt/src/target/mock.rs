@@ -7,6 +7,7 @@ pub fn get_mask() -> u32 {
 }
 
 /// Set specific interrupts
+/// # Safety
 #[inline]
 pub unsafe fn set_mask(mask: u32) {
     MOCK = mask
