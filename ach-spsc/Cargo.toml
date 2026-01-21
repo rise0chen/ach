@@ -8,7 +8,7 @@ license-file = "LICENSE"
 name = "ach-spsc"
 readme = "./README.md"
 repository = "https://github.com/rise0chen/ach.git"
-version = "0.2.0"
+version = "0.2.1"
 
 [features]
 alloc = []
