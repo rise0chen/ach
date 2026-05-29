@@ -1,8 +1,10 @@
 use super::state::MemoryState;
+use bytemuck::NoUninit;
 
 pub type AtomicMemoryRefer = atomic::Atomic<MemoryRefer>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, NoUninit)]
+#[repr(C)]
 pub struct MemoryRefer(u32);
 impl Default for MemoryRefer {
     fn default() -> Self {

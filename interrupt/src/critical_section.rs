@@ -4,16 +4,16 @@ use core::ops::Deref;
 /// Critical section token.
 ///
 /// The current core is executing code within a critical section.
-pub struct CriticalSection<'cs> {
-    inner: bare_metal::CriticalSection<'cs>,
+pub struct CriticalSection {
+    inner: bare_metal::CriticalSection,
     mask: u32,
 }
-impl<'cs> Default for CriticalSection<'cs> {
+impl Default for CriticalSection {
     fn default() -> Self {
         Self::new()
     }
 }
-impl<'cs> CriticalSection<'cs> {
+impl CriticalSection {
     /// Into a critical section. And exit the critical section, when it drop.
     pub fn new() -> Self {
         let mask = disable_mask(MASK_ALL);
@@ -23,13 +23,13 @@ impl<'cs> CriticalSection<'cs> {
         }
     }
 }
-impl<'cs> Deref for CriticalSection<'cs> {
-    type Target = bare_metal::CriticalSection<'cs>;
+impl Deref for CriticalSection {
+    type Target = bare_metal::CriticalSection;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
-impl<'cs> Drop for CriticalSection<'cs> {
+impl Drop for CriticalSection {
     fn drop(&mut self) {
         unsafe { set_mask(self.mask) };
     }

@@ -1,21 +1,21 @@
 [package]
-authors = ["rise0chen <rise0chen@163.com>"]
+authors.workspace = true
 categories = ["embedded", "concurrency"]
 description = "interrupt"
-edition = "2018"
+edition.workspace = true
 keywords = ["interrupt"]
-license-file = "LICENSE"
+license-file.workspace = true
 name = "interrupt"
-readme = "./README.md"
-repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.4"
+readme.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [features]
 custom = []
 default = []
 
 [dependencies]
-bare-metal = "1.0.0"
+bare-metal = "0.2"
 cfg-if = "1.0.0"
 
 [target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]

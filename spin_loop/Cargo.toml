@@ -1,11 +1,11 @@
 [package]
-authors = ["rise0chen <rise0chen@163.com>"]
-categories = ["concurrency"]
+authors.workspace = true
+categories.workspace = true
 description = "spin_loop"
-edition = "2018"
+edition.workspace = true
 keywords = ["spin"]
-license-file = "LICENSE"
+license-file.workspace = true
 name = "spin_loop"
-readme = "./README.md"
-repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.1"
+readme.workspace = true
+repository.workspace = true
+version.workspace = true

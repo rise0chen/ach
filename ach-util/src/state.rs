@@ -1,6 +1,8 @@
 pub type AtomicMemoryState = atomic::Atomic<MemoryState>;
+use bytemuck::NoUninit;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, NoUninit)]
+#[repr(u8)]
 pub enum MemoryState {
     Uninitialized = 0,
     Initializing = 1,

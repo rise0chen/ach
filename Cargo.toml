@@ -16,5 +16,17 @@ members = [
   "ach-pubsub",
   "ach",
 ]
+resolver = "2"
+
+[workspace.package]
+authors = ["rise0chen <rise0chen@163.com>"]
+categories = ["concurrency"]
+description = "Atomic Channel"
+edition = "2018"
+keywords = ["atomic", "channel", "no-heap"]
+license-file = "LICENSE"
+readme = "./README.md"
+repository = "https://github.com/rise0chen/ach.git"
+version = "0.2.5"
 
 [patch.crates-io]

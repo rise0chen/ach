@@ -1,19 +1,19 @@
 [package]
-authors = ["rise0chen <rise0chen@163.com>"]
-categories = ["concurrency"]
-description = "Atomic Channel"
-edition = "2018"
-keywords = ["atomic", "channel", "no-heap"]
-license-file = "LICENSE"
+authors.workspace = true
+categories.workspace = true
+description.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license-file.workspace = true
 name = "ach-linked"
-readme = "./README.md"
-repository = "https://github.com/rise0chen/ach.git"
-version = "0.2.3"
+readme.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
-ach-cell = {version = "0.1", path = "../ach-cell"}
-spin_loop = {version = "0.1", path = "../spin_loop"}
-util = {package = "ach-util", version = "0.1", path = "../ach-util"}
+ach-cell = {version = "0.2", path = "../ach-cell"}
+spin_loop = {version = "0.2", path = "../spin_loop"}
+util = {package = "ach-util", version = "0.2", path = "../ach-util"}
 
 [dev-dependencies]
 on_drop = "0.1"

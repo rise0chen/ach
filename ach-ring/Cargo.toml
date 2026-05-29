@@ -1,17 +1,17 @@
 [package]
-authors = ["rise0chen <rise0chen@163.com>"]
-categories = ["concurrency"]
-description = "Atomic Channel"
-edition = "2018"
-keywords = ["atomic", "channel", "no-heap", "once"]
-license-file = "LICENSE"
+authors.workspace = true
+categories.workspace = true
+description.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license-file.workspace = true
 name = "ach-ring"
-readme = "./README.md"
-repository = "https://github.com/rise0chen/ach.git"
-version = "0.1.10"
+readme.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
-util = {package = "ach-util", version = "0.1", path = "../ach-util"}
+util = {package = "ach-util", version = "0.2", path = "../ach-util"}
 
 [target.'cfg(target_os = "none")'.dependencies]
 interrupt = "0.1"

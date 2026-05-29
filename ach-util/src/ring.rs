@@ -1,9 +1,11 @@
 use super::state::MemoryState;
+use bytemuck::NoUninit;
 use core::cmp::Ordering;
 
 pub type AtomicMemoryRing = atomic::Atomic<MemoryRing>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, NoUninit)]
+#[repr(C)]
 pub struct MemoryRing(u32);
 impl MemoryRing {
     pub const INIT: Self = Self::new(0, MemoryState::Uninitialized);
